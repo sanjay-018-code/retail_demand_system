@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Retail Demand Prediction System — Hackathon Problem 8</title>
+<!-- Google Fonts: Inter -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- Bootstrap 5 CSS -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+<!-- Bootstrap Icons -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<!-- Custom Styles -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body class="bg-light">
+
+<!-- Top Navigation Bar -->
+<header class="navbar navbar-expand-lg navbar-dark bg-slate-900 border-bottom border-slate-800 sticky-top px-3 py-2 shadow-sm">
+  <div class="container-fluid">
+    <div class="d-flex align-items-center gap-2">
+      <div class="brand-logo-icon">📦</div>
+      <div>
+        <span class="navbar-brand fw-bold mb-0 text-white fs-5 tracking-tight">Local Retail Demand Prediction System</span>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle text-uppercase d-none d-md-inline ms-1" style="font-size: 0.68rem; font-weight: 700;">Hackathon &bull; Problem 8</span>
+      </div>
+    </div>
+
+    <!-- Store Selector & Live Indicator -->
+    <div class="d-flex align-items-center gap-3 ms-auto">
+      <div class="d-flex align-items-center bg-slate-800 rounded-pill px-3 py-1 border border-slate-700">
+        <i class="bi bi-shop text-primary me-2"></i>
+        <select id="globalStoreSelect" class="form-select form-select-sm bg-transparent border-0 text-white shadow-none py-0 ps-0 pe-4" style="font-size: 0.85rem; cursor: pointer;">
+          <option value="all" class="text-dark">All Stores (Consolidated)</option>
+        </select>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <span id="dateRangeLabel" class="text-slate-400 small d-none d-lg-inline"></span>
+        <span id="liveBadge" class="status-indicator-badge live">
+          <span class="pulse-dot"></span> LIVE
+        </span>
+      </div>
+
+      <!-- Export Button Dropdown -->
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1 rounded-3" type="button" data-bs-toggle="dropdown">
+          <i class="bi bi-download"></i> <span class="d-none d-sm-inline">Export</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0">
+          <li><h6 class="dropdown-header text-muted">PDF Reports</h6></li>
+          <li><a class="dropdown-item" href="#" id="exportPdfAlerts"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Stock Risk & Recommendations (PDF)</a></li>
+          <li><a class="dropdown-item" href="#" id="exportPdfMovers"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Fast & Slow Movers (PDF)</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><h6 class="dropdown-header text-muted">Data Tables (CSV)</h6></li>
+          <li><a class="dropdown-item" href="#" id="exportCsvRaw"><i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Cleaned Sales Data (CSV)</a></li>
+          <li><a class="dropdown-item" href="#" id="exportCsvOrders"><i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Purchase Orders (CSV)</a></li>
+        </ul>
+      </div>
+
+      <!-- User Auth Section -->
+      <div class="d-flex align-items-center gap-2 ms-1">
+        <div id="userProfileBadge" class="d-flex align-items-center gap-2 bg-slate-800 text-light px-2 py-1 rounded-3 border border-slate-700">
+          <i class="bi bi-person-circle fs-6 text-slate-300"></i>
+          <div class="text-start lh-1">
+            <div id="navUsername" class="small fw-semibold text-white">Guest</div>
+            <span id="navRoleBadge" class="badge bg-secondary text-light px-1" style="font-size:0.6rem;">Viewer</span>
+          </div>
+        </div>
+        <button id="authBtn" class="btn btn-sm btn-primary rounded-3 px-3 fw-medium" data-bs-toggle="modal" data-bs-target="#loginModal">
+          <i class="bi bi-box-arrow-in-right me-1"></i> Log In
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Main Navigation Tabs -->
+<div class="bg-white border-bottom shadow-2xs px-4 pt-2">
+  <ul class="nav nav-tabs border-bottom-0 gap-1" id="mainTabs">
+    <li class="nav-item">
+      <button class="nav-link active d-flex align-items-center gap-2" data-tab="dashboardTab">
+        <i class="bi bi-speedometer2 text-primary"></i> <span>Dashboard & Predictions</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link d-flex align-items-center gap-2" data-tab="flowTab">
+        <i class="bi bi-diagram-3-fill text-info"></i> <span>8-Step System Flow</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link d-flex align-items-center gap-2" data-tab="factorsTab">
+        <i class="bi bi-sliders text-warning"></i> <span>7 Factors & Hidden Test Cases</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link d-flex align-items-center gap-2" data-tab="reorderTab">
+        <i class="bi bi-cart-check text-success"></i> <span>Reorder & Purchase Orders</span>
+        <span id="poBadgeCount" class="badge rounded-pill bg-danger d-none" style="font-size: 0.65rem;">0</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link d-flex align-items-center gap-2" data-tab="simulatorTab">
+        <i class="bi bi-lightning-charge text-danger"></i> <span>What-If Simulator</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link d-flex align-items-center gap-2" data-tab="manageTab">
+        <i class="bi bi-gear text-secondary"></i> <span>Data & Management</span>
+      </button>
+    </li>
+  </ul>
+</div>
+
+<!-- Main Container -->
+<main class="container-fluid p-4">
+
+  <!-- ========================================================================= -->
+  <!-- TAB 1: DASHBOARD & PROBLEM 8 OUTPUTS (Section 10 & 11 of Problem Statement) -->
+  <!-- ========================================================================= -->
+  <div id="dashboardTab" class="tab-pane">
+    <!-- Top System KPIs -->
+    <div class="row g-3 mb-4" id="kpiRow">
+      <div class="col-12 text-center text-muted py-3">Loading system metrics...</div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="row g-4">
+      <!-- Left Column: Stock-out / Overstock Alerts & Example Recommendations -->
+      <div class="col-xl-5 col-lg-6">
+        <div class="card border-0 shadow-sm rounded-4 h-100">
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="header-icon bg-danger-subtle text-danger"><i class="bi bi-shield-exclamation"></i></span>
+              <div>
+                <h6 class="fw-bold mb-0 text-slate-800">Stock-out & Overstock Alerts</h6>
+                <small class="text-muted">Problem Statement Section 10 & 11 Output</small>
+              </div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <select id="horizonSelect" class="form-select form-select-sm w-auto rounded-3">
+                <option value="7">Next 7 Days</option>
+                <option value="14">Next 14 Days</option>
+                <option value="3">Next 3 Days</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body p-3" style="max-height: 660px; overflow-y: auto;" id="alertsBody">
+            <div class="text-center text-muted p-5">
+              <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+              <div>Evaluating inventory levels against predicted demand...</div>
+            </div>
+          </div>
+          <div class="card-footer bg-slate-50 border-top text-end py-2 px-4">
+            <button class="btn btn-sm btn-link text-primary text-decoration-none fw-semibold p-0" onclick="document.querySelector('[data-tab=reorderTab]').click()">
+              View Automated Reorder Recommendations &rarr;
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Dual Prediction Chart & Daily/Weekly Trends -->
+      <div class="col-xl-7 col-lg-6">
+        <!-- Dual Prediction Engine Card -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="header-icon bg-primary-subtle text-primary"><i class="bi bi-graph-up-arrow"></i></span>
+              <div>
+                <h6 class="fw-bold mb-0 text-slate-800">Demand Prediction (Dual Baseline vs Event Uplift)</h6>
+                <small class="text-muted">Addresses Section 7: Festival spike ≠ New normal daily demand</small>
+              </div>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <select id="productSelect" class="form-select form-select-sm rounded-3" style="min-width: 160px;"></select>
+              <input type="date" id="festivalDate" class="form-control form-control-sm rounded-3" title="Declare upcoming festival/event date">
+              <button id="applyFestivalBtn" class="btn btn-sm btn-warning rounded-3 text-dark fw-medium">
+                <i class="bi bi-calendar-event me-1"></i> Declare Event
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-4">
+            <div style="position: relative; height: 260px;">
+              <canvas id="forecastChart"></canvas>
+            </div>
+            <div id="eventUpliftNote" class="alert alert-amber rounded-3 mt-3 py-2 small d-none d-flex align-items-center gap-2">
+              <i class="bi bi-lightning-charge-fill text-warning fs-5"></i>
+              <div id="eventUpliftText"></div>
+            </div>
+            <div id="lowConfidenceNote" class="alert alert-secondary rounded-3 mt-2 py-2 small d-none d-flex align-items-center gap-2">
+              <i class="bi bi-info-circle text-muted fs-5"></i>
+              <div><strong>Hidden Test Case 3:</strong> New product with little history (&lt;14 days). System automatically falls back to category baseline model with low-confidence flag.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily vs Weekly Demand Trends (Req 2 & 3) -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+              <span class="header-icon bg-info-subtle text-info"><i class="bi bi-clock-history"></i></span>
+              <div>
+                <h6 class="fw-bold mb-0 text-slate-800">Historical Demand Trends (Daily & Weekly)</h6>
+                <small class="text-muted">Requirements #2 & #3: Daily / Weekly demand calculations</small>
+              </div>
+            </div>
+            <div class="btn-group btn-group-sm" role="group">
+              <input type="radio" class="btn-check" name="trendViewRadio" id="dailyTrendRadio" autocomplete="off" checked>
+              <label class="btn btn-outline-primary" for="dailyTrendRadio">Daily Trend</label>
+              <input type="radio" class="btn-check" name="trendViewRadio" id="weeklyTrendRadio" autocomplete="off">
+              <label class="btn btn-outline-primary" for="weeklyTrendRadio">Weekly Trend</label>
+            </div>
+          </div>
+          <div class="card-body p-3">
+            <div style="position: relative; height: 190px;">
+              <canvas id="historyChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fast-Moving & Slow-Moving Products (Req 4 & 5) -->
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-arrow-down-up text-primary me-2"></i>Fast-Moving & Slow-Moving Products List</h6>
+              <small class="text-muted">Requirements #4 & #5: Tercile classification of average daily sales</small>
+            </div>
+            <span class="badge bg-slate-100 text-slate-700 border">Last 30 Days</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 240px;">
+              <table class="table table-hover align-middle mb-0" id="moversTable">
+                <thead class="table-light text-slate-600 small text-uppercase">
+                  <tr><th>Product</th><th>Category</th><th>Avg Daily Demand</th><th>Classification</th></tr>
+                </thead>
+                <tbody class="small"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 2: 8-STEP SYSTEM FLOW (Section 6 of Problem Statement) -->
+  <!-- ========================================================================= -->
+  <div id="flowTab" class="tab-pane d-none">
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header bg-white border-bottom py-3 px-4">
+        <h5 class="fw-bold mb-0 text-slate-900"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Basic System Flow (Problem Statement Section 6)</h5>
+        <p class="small text-muted mb-0">End-to-end interactive trace of how raw data transforms into actionable inventory decisions.</p>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <!-- Step 1 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-primary rounded-circle p-2">1</span>
+                <strong class="text-slate-900">Sales & Product Data Collection</strong>
+              </div>
+              <p class="small text-muted mb-2">Ingests historical POS sales with 10 standard columns (Product ID, Date, Qty Sold, Stock, Price, Promo, Festival, Day Type, Holiday, Weather).</p>
+              <span class="badge bg-primary-subtle text-primary small">Live in SQLite</span>
+            </div>
+          </div>
+          <!-- Step 2 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-info rounded-circle p-2 text-white">2</span>
+                <strong class="text-slate-900">Data Cleaning & Validation</strong>
+              </div>
+              <p class="small text-muted mb-2">Fills calendar date gaps (<code>is_missing_filled</code>), removes duplicate rows, and corrects negative sales or stock quantities.</p>
+              <span class="badge bg-info-subtle text-info small" id="flowCleanBadge">Validation Active</span>
+            </div>
+          </div>
+          <!-- Step 3 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-success rounded-circle p-2">3</span>
+                <strong class="text-slate-900">Daily / Weekly Demand Analysis</strong>
+              </div>
+              <p class="small text-muted mb-2">Aggregates sales by day and week; classifies catalog into Fast-Moving and Slow-Moving terciles based on run rate.</p>
+              <span class="badge bg-success-subtle text-success small">Tercile Split</span>
+            </div>
+          </div>
+          <!-- Step 4 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-warning rounded-circle p-2 text-dark">4</span>
+                <strong class="text-slate-900">External Factors Analysis</strong>
+              </div>
+              <p class="small text-muted mb-2">Analyzes weekends, salary periods, holidays, festival spikes, promotional discounts, and weather effects.</p>
+              <span class="badge bg-warning-subtle text-warning small">7 Factors Modeled</span>
+            </div>
+          </div>
+          <!-- Step 5 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-danger rounded-circle p-2">5</span>
+                <strong class="text-slate-900">Demand Prediction</strong>
+              </div>
+              <p class="small text-muted mb-2">RandomForest ML model computes 7/14-day forecast with dual baseline to isolate temporary event spikes from baseline demand.</p>
+              <span class="badge bg-danger-subtle text-danger small">Dual Horizon ML</span>
+            </div>
+          </div>
+          <!-- Step 6 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-dark rounded-circle p-2">6</span>
+                <strong class="text-slate-900">Compare Prediction with Stock</strong>
+              </div>
+              <p class="small text-muted mb-2">Compares total predicted horizon demand (plus statistical safety buffer) against available inventory.</p>
+              <span class="badge bg-dark-subtle text-dark small">Buffer Evaluation</span>
+            </div>
+          </div>
+          <!-- Step 7 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-purple rounded-circle p-2 text-white" style="background:#7c3aed;">7</span>
+                <strong class="text-slate-900">Stock-out / Overstock Detection</strong>
+              </div>
+              <p class="small text-muted mb-2">Flags Stock-Out Risks when stock &lt; demand &times; safety margin (1.15); flags Overstock when stock &gt; 2.0&times; demand.</p>
+              <span class="badge bg-secondary-subtle text-secondary small">Threshold Rules</span>
+            </div>
+          </div>
+          <!-- Step 8 -->
+          <div class="col-md-6 col-xl-3">
+            <div class="p-3 bg-white border rounded-4 shadow-2xs h-100">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-teal rounded-circle p-2 text-white" style="background:#0d9488;">8</span>
+                <strong class="text-slate-900">Recommendation & Dashboard</strong>
+              </div>
+              <p class="small text-muted mb-2">Outputs clear, contextual explanations (Section 11 format) and purchase recommendations on the live dashboard.</p>
+              <span class="badge bg-success-subtle text-success small">Section 11 Format</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 3: 7 FACTORS & 7 HIDDEN TEST CASES (Section 3 & 8 of Problem Statement) -->
+  <!-- ========================================================================= -->
+  <div id="factorsTab" class="tab-pane d-none">
+    <!-- 7 Factors Breakdown -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header bg-white border-bottom py-3 px-4">
+        <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-bar-chart-steps text-warning me-2"></i>Factors Affecting Demand (Problem Statement Section 3)</h6>
+        <small class="text-muted">Empirical demand uplift multipliers computed directly from sales history</small>
+      </div>
+      <div class="card-body p-4" id="factorsAnalysisContainer">
+        <div class="text-center text-muted py-3">Computing factor impacts...</div>
+      </div>
+    </div>
+
+    <!-- 7 Hidden Test Cases Verifier -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+      <div class="card-header bg-white border-bottom py-3 px-4">
+        <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-shield-check text-success me-2"></i>Hidden Test Cases Verification Inspector (Problem Statement Section 8)</h6>
+        <small class="text-muted">Demonstrates the explicit algorithmic handling for every single hidden edge case</small>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" id="hiddenCasesTable">
+            <thead class="table-light text-slate-600 small text-uppercase">
+              <tr>
+                <th style="width: 25%;">Hidden Test Case</th>
+                <th style="width: 50%;">Algorithmic Solution & Handling</th>
+                <th style="width: 25%;">Verification Status</th>
+              </tr>
+            </thead>
+            <tbody class="small" id="hiddenCasesBody">
+              <tr><td colspan="3" class="text-center text-muted py-4">Verifying test cases against pipeline...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 4: REORDER & PURCHASE ORDERS (Req #24, #26) -->
+  <!-- ========================================================================= -->
+  <div id="reorderTab" class="tab-pane d-none">
+    <div class="row g-4 mb-4">
+      <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-calculator text-success me-2"></i>Automated Reorder Point (ROP) & Purchase Recommendations</h6>
+              <small class="text-muted">ROP = (Predicted Demand &times; Lead Time) + Statistical Safety Stock (1.65 &times; &sigma; &times; &radic;L)</small>
+            </div>
+            <button class="btn btn-sm btn-outline-success rounded-3" onclick="loadReorderData()">
+              <i class="bi bi-arrow-clockwise me-1"></i> Refresh Calculations
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0" id="reorderTable">
+                <thead class="table-light text-slate-600 small text-uppercase">
+                  <tr>
+                    <th>Product</th>
+                    <th>Supplier & Lead Time</th>
+                    <th>Stock / ROP</th>
+                    <th>Days Remaining</th>
+                    <th>Suggested Order</th>
+                    <th>Est. Cost</th>
+                    <th>Reorder Date</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody class="small" id="reorderTableBody">
+                  <tr><td colspan="8" class="text-center text-muted py-4">Loading reorder calculations...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Purchase Orders List -->
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-receipt text-primary me-2"></i>Purchase Orders Tracker</h6>
+            <button class="btn btn-sm btn-primary rounded-3" data-bs-toggle="modal" data-bs-target="#customPoModal">
+              <i class="bi bi-plus-lg me-1"></i> Create Custom PO
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-slate-600 small text-uppercase">
+                  <tr>
+                    <th>PO #</th>
+                    <th>Store</th>
+                    <th>Product</th>
+                    <th>Supplier</th>
+                    <th>Qty</th>
+                    <th>Order Date</th>
+                    <th>Expected Date</th>
+                    <th>Status</th>
+                    <th>Update Status</th>
+                  </tr>
+                </thead>
+                <tbody class="small" id="poTableBody">
+                  <tr><td colspan="9" class="text-center text-muted py-4">No purchase orders created yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 5: WHAT-IF SCENARIO SIMULATOR (Req #28) -->
+  <!-- ========================================================================= -->
+  <div id="simulatorTab" class="tab-pane d-none">
+    <div class="row g-4">
+      <!-- Simulation Controls -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-sliders2 text-warning me-2"></i>Scenario Configuration</h6>
+          </div>
+          <div class="card-body p-4">
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-slate-700">Target Product</label>
+              <select id="simProductSelect" class="form-select form-select-sm rounded-3"></select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-slate-700">Forecast Horizon</label>
+              <select id="simHorizonSelect" class="form-select form-select-sm rounded-3">
+                <option value="14">14 Days</option>
+                <option value="21">21 Days</option>
+                <option value="30">30 Days</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-slate-700 d-flex justify-content-between">
+                <span>Promotional Discount (%)</span>
+                <span id="discountValLabel" class="text-primary fw-bold">15%</span>
+              </label>
+              <input type="range" class="form-range" id="simDiscountRange" min="0" max="60" step="5" value="15">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-slate-700">Simulate Promotion on Dates</label>
+              <input type="date" id="simPromoDate" class="form-control form-control-sm rounded-3 mb-1">
+              <button class="btn btn-sm btn-outline-secondary w-100 rounded-3" id="addSimPromoDateBtn">
+                <i class="bi bi-plus-circle me-1"></i> Add Date to Promo Window
+              </button>
+              <div id="simPromoDatesList" class="d-flex flex-wrap gap-1 mt-2"></div>
+            </div>
+            <div class="mb-4">
+              <label class="form-label small fw-semibold text-slate-700">Simulate Special Event / Festival Date</label>
+              <input type="date" id="simFestDate" class="form-control form-control-sm rounded-3 mb-1">
+              <button class="btn btn-sm btn-outline-secondary w-100 rounded-3" id="addSimFestDateBtn">
+                <i class="bi bi-plus-circle me-1"></i> Add Festival Date
+              </button>
+              <div id="simFestDatesList" class="d-flex flex-wrap gap-1 mt-2"></div>
+            </div>
+            <button class="btn btn-warning w-100 rounded-3 text-dark fw-bold py-2" id="runSimBtn">
+              <i class="bi bi-play-circle-fill me-1"></i> Run What-If Simulation
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Simulation Output -->
+      <div class="col-lg-8">
+        <div class="row g-3 mb-4" id="simKpisRow">
+          <div class="col-12 text-center text-muted p-4 card rounded-4 border-0 shadow-sm">
+            Configure parameters and click <strong>Run What-If Simulation</strong> to analyze projected demand uplift, inventory shortfall risks, and financial delta.
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-graph-up text-primary me-2"></i>Baseline Demand vs Simulated Campaign Demand</h6>
+          </div>
+          <div class="card-body p-4">
+            <div style="position: relative; height: 260px;">
+              <canvas id="simChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 6: DATA MANAGEMENT & SYSTEM SETTINGS -->
+  <!-- ========================================================================= -->
+  <div id="manageTab" class="tab-pane d-none">
+    <div class="row g-4">
+      <!-- Left Column: Data Mutation & Upload -->
+      <div class="col-lg-6">
+        <!-- CSV Upload -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-cloud-arrow-up text-primary me-2"></i>Upload Sales CSV (Section 9 Schema)</h6>
+          </div>
+          <div class="card-body p-4">
+            <p class="small text-muted mb-3">
+              Standard POS Schema: <code>product_id, date, quantity_sold, current_stock, price, promotion, festival_event, day_type, holiday, weather</code>.
+            </p>
+            <input type="file" id="csvFile" accept=".csv" class="form-control form-control-sm rounded-3 mb-3">
+            <div class="d-flex gap-2 align-items-center">
+              <select id="uploadMode" class="form-select form-select-sm rounded-3 w-auto">
+                <option value="append">Append (Add to existing records)</option>
+                <option value="replace">Replace (Wipe and replace all - Admin only)</option>
+              </select>
+              <button id="uploadBtn" class="btn btn-sm btn-primary rounded-3 px-4 fw-medium">
+                <i class="bi bi-upload me-1"></i> Upload
+              </button>
+            </div>
+            <div id="uploadResult" class="small mt-3"></div>
+          </div>
+        </div>
+
+        <!-- Add Product Form -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-box-seam text-success me-2"></i>Add / Update Product Master</h6>
+          </div>
+          <div class="card-body p-4">
+            <div class="row g-2">
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_id" placeholder="Product ID (e.g. P020)"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_name" placeholder="Name"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_category" placeholder="Category"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_price" type="number" placeholder="Price (₹)"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_stock" type="number" placeholder="Initial Stock"></div>
+              <div class="col-6">
+                <select id="pf_supplier" class="form-select form-select-sm rounded-3">
+                  <option value="SUP01">SUP01 - Nat Bev & Dairy</option>
+                  <option value="SUP02">SUP02 - Apex Food Logistics</option>
+                  <option value="SUP03">SUP03 - Evergreen Wholesale</option>
+                </select>
+              </div>
+              <div class="col-12 mt-3"><button id="pf_submit" class="btn btn-sm btn-success rounded-3 w-100 fw-medium">Save Product</button></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Record Single Sale -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-receipt text-info me-2"></i>Record Individual Sale</h6>
+          </div>
+          <div class="card-body p-4">
+            <div class="row g-2">
+              <div class="col-6"><select class="form-select form-select-sm rounded-3" id="sf_store"><option value="S001">Central Superstore (S001)</option><option value="S002">Suburban Express (S002)</option></select></div>
+              <div class="col-6"><select class="form-select form-select-sm rounded-3" id="sf_product"></select></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_date" type="date"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_qty" type="number" placeholder="Qty Sold"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_stock" type="number" placeholder="Current Stock"></div>
+              <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_festival" placeholder="Event / Festival"></div>
+              <div class="col-6 form-check ms-2 mt-1">
+                <input class="form-check-input" type="checkbox" id="sf_promo">
+                <label class="form-check-label small" for="sf_promo">Promotion active</label>
+              </div>
+              <div class="col-12 mt-2"><button id="sf_submit" class="btn btn-sm btn-info text-white rounded-3 w-100 fw-medium">Record Sale</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Products & System Audit Logs -->
+      <div class="col-lg-6">
+        <!-- Products Table -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-boxes text-secondary me-2"></i>Product Master Catalog</h6>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 240px;">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-slate-600 small text-uppercase"><tr><th>ID</th><th>Name</th><th>Category</th><th>Price</th><th>Supplier</th><th></th></tr></thead>
+                <tbody class="small" id="productsMgmtBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit Trail Table -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-journal-text text-dark me-2"></i>System Audit Log</h6>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 250px;">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light text-slate-600 small text-uppercase">
+                  <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Target</th><th>Details</th></tr>
+                </thead>
+                <tbody class="small" id="auditLogsBody">
+                  <tr><td colspan="5" class="text-center text-muted py-3">Loading audit history...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Retraining & Snapshot Backup -->
+        <div class="card border-0 shadow-sm rounded-4">
+          <div class="card-header bg-white border-bottom py-3 px-4">
+            <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-tools text-primary me-2"></i>Maintenance & Forced Retraining</h6>
+          </div>
+          <div class="card-body p-4 d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-bold text-slate-800 small">Pipeline Retrain & Database Backup</div>
+              <div class="text-muted" style="font-size:0.75rem;">Re-evaluate out-of-sample error and persist database snapshot</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-sm btn-outline-primary rounded-3" id="retrainBtn">Retrain ML Model</button>
+              <button class="btn btn-sm btn-outline-secondary rounded-3" id="backupDbBtn">Backup DB</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center text-muted small mt-5 mb-3">
+    Local Retail Demand Prediction System &middot; Hackathon Problem 8 &middot; Production Ready
+  </footer>
+</main>
+
+<!-- ========================================================================= -->
+<!-- MODALS -->
+<!-- ========================================================================= -->
+<!-- Login Modal -->
+<div class="modal fade" id="loginModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-bottom py-3 px-4">
+        <h6 class="modal-title fw-bold text-slate-900"><i class="bi bi-shield-lock text-primary me-2"></i>Sign In</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-slate-700">Username</label>
+          <input type="text" id="loginUsername" class="form-control rounded-3" placeholder="admin / manager / viewer" value="admin">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-slate-700">Password</label>
+          <input type="password" id="loginPassword" class="form-control rounded-3" placeholder="••••••••" value="admin123">
+        </div>
+        <div id="loginError" class="small text-danger mb-3 d-none"></div>
+        <button type="button" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold" id="loginSubmitBtn">Log In</button>
+        <div class="text-center text-muted mt-3 small">
+          Default credentials:<br>
+          <code>admin/admin123</code> &bull; <code>manager/manager123</code> &bull; <code>viewer/viewer123</code>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Custom PO Creation Modal -->
+<div class="modal fade" id="customPoModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-bottom py-3 px-4">
+        <h6 class="modal-title fw-bold text-slate-900"><i class="bi bi-file-earmark-plus text-primary me-2"></i>Create Purchase Order</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-slate-700">Target Store</label>
+          <select id="poModalStoreSelect" class="form-select rounded-3"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-slate-700">Product</label>
+          <select id="poModalProductSelect" class="form-select rounded-3"></select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-slate-700">Order Quantity</label>
+          <input type="number" id="poModalQty" class="form-control rounded-3" placeholder="e.g. 50">
+        </div>
+        <div class="mb-3">
+          <label class="form-label small fw-semibold text-slate-700">Notes / Reason</label>
+          <textarea id="poModalNotes" class="form-control rounded-3" rows="2" placeholder="e.g. Stock replenishment for festival surge"></textarea>
+        </div>
+        <button type="button" class="btn btn-success w-100 rounded-3 py-2 fw-semibold" id="poModalSubmitBtn">Submit Purchase Order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
