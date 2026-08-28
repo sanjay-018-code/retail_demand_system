@@ -3,8 +3,6 @@ Configuration Management for Retail Demand Prediction System
 =============================================================
 Supports Dev, Staging, and Production profiles via environment variables.
 """
-import os
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class Config:
