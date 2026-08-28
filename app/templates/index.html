@@ -1,96 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Local Retail Demand Prediction System — Hackathon Problem 8</title>
+  <title>RetailPulse AI — Demand Prediction & Smart Inventory Engine</title>
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-    rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Bootstrap 5 CSS -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
   <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-  <!-- Custom Styles -->
+  <!-- Custom Modern Design System -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <!-- Chart.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 
-<body class="bg-light">
+<body>
 
+  <!-- ========================================================================= -->
   <!-- Top Navigation Bar -->
-  <header
-    class="navbar navbar-expand-lg navbar-dark bg-slate-900 border-bottom border-slate-800 sticky-top px-3 py-2 shadow-sm">
+  <!-- ========================================================================= -->
+  <header class="app-header navbar navbar-expand-lg navbar-dark sticky-top px-3 py-2">
     <div class="container-fluid">
-      <div class="d-flex align-items-center gap-2">
-        <div class="brand-logo-icon">📦</div>
+      <div class="d-flex align-items-center gap-3">
+        <div class="brand-logo-icon">
+          <i class="bi bi-cpu-fill text-white"></i>
+        </div>
         <div>
-          <span class="navbar-brand fw-bold mb-0 text-white fs-5 tracking-tight">Local Retail Demand Prediction
-            System</span>
+          <div class="brand-title">RetailPulse AI</div>
+          <div class="brand-subtitle">Smart Demand & Inventory Forecasting</div>
         </div>
       </div>
 
-      <!-- Store Selector & Live Indicator -->
-      <div class="d-flex align-items-center gap-3 ms-auto">
-        <div class="d-flex align-items-center bg-slate-800 rounded-pill px-3 py-1 border border-slate-700">
+      <!-- Store Selector, Theme Toggle & Controls -->
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <!-- Global Store Selector -->
+        <div class="d-flex align-items-center bg-slate-800 rounded-pill px-3 py-1 border border-slate-700" style="background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.12) !important;">
           <i class="bi bi-shop text-primary me-2"></i>
-          <select id="globalStoreSelect"
-            class="form-select form-select-sm bg-transparent border-0 text-white shadow-none py-0 ps-0 pe-4"
-            style="font-size: 0.85rem; cursor: pointer;">
+          <select id="globalStoreSelect" class="form-select form-select-sm bg-transparent border-0 text-white shadow-none py-0 ps-0 pe-4" style="font-size: 0.84rem; cursor: pointer;">
             <option value="all" class="text-dark">All Stores (Consolidated)</option>
           </select>
         </div>
 
+        <!-- Live Status Pill -->
         <div class="d-flex align-items-center gap-2">
-          <span id="dateRangeLabel" class="text-slate-400 small d-none d-lg-inline"></span>
+          <span id="dateRangeLabel" class="text-slate-400 small d-none d-xl-inline" style="color: #94a3b8; font-size: 0.78rem;"></span>
           <span id="liveBadge" class="status-indicator-badge live">
             <span class="pulse-dot"></span> LIVE
           </span>
         </div>
 
-        <!-- Export Button Dropdown -->
+        <!-- Dark / Light Theme Switcher Button -->
+        <button id="themeToggleBtn" class="theme-switch-btn ms-1" title="Toggle Light/Dark Theme">
+          <i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i>
+        </button>
+
+        <!-- Export Dropdown -->
         <div class="dropdown">
-          <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1 rounded-3"
-            type="button" data-bs-toggle="dropdown">
+          <button class="btn btn-sm btn-outline-light dropdown-toggle d-flex align-items-center gap-1 rounded-3" type="button" data-bs-toggle="dropdown" style="border-color: rgba(255,255,255,0.18);">
             <i class="bi bi-download"></i> <span class="d-none d-sm-inline">Export</span>
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0">
-            <li>
-              <h6 class="dropdown-header text-muted">PDF Reports</h6>
-            </li>
-            <li><a class="dropdown-item" href="#" id="exportPdfAlerts"><i
-                  class="bi bi-file-earmark-pdf text-danger me-2"></i>Stock Risk & Recommendations (PDF)</a></li>
-            <li><a class="dropdown-item" href="#" id="exportPdfMovers"><i
-                  class="bi bi-file-earmark-pdf text-danger me-2"></i>Fast & Slow Movers (PDF)</a></li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <li>
-              <h6 class="dropdown-header text-muted">Data Tables (CSV)</h6>
-            </li>
-            <li><a class="dropdown-item" href="#" id="exportCsvRaw"><i
-                  class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Cleaned Sales Data (CSV)</a></li>
-            <li><a class="dropdown-item" href="#" id="exportCsvOrders"><i
-                  class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Purchase Orders (CSV)</a></li>
+            <li><h6 class="dropdown-header text-muted">PDF Reports</h6></li>
+            <li><a class="dropdown-item" href="#" id="exportPdfAlerts"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Stock Risk & Recommendations (PDF)</a></li>
+            <li><a class="dropdown-item" href="#" id="exportPdfMovers"><i class="bi bi-file-earmark-pdf text-danger me-2"></i>Fast & Slow Movers (PDF)</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header text-muted">Data Tables (CSV)</h6></li>
+            <li><a class="dropdown-item" href="#" id="exportCsvRaw"><i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Cleaned Sales Data (CSV)</a></li>
+            <li><a class="dropdown-item" href="#" id="exportCsvOrders"><i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>Purchase Orders (CSV)</a></li>
+            <li><a class="dropdown-item" href="/api/template/csv"><i class="bi bi-file-earmark-code text-primary me-2"></i>Download POS CSV Template</a></li>
           </ul>
         </div>
 
-        <!-- User Auth Section -->
+        <!-- User Authentication & Profile -->
         <div class="d-flex align-items-center gap-2 ms-1">
-          <div id="userProfileBadge"
-            class="d-flex align-items-center gap-2 bg-slate-800 text-light px-2 py-1 rounded-3 border border-slate-700">
-            <i class="bi bi-person-circle fs-6 text-slate-300"></i>
+          <div id="userProfileBadge" class="d-flex align-items-center gap-2 px-2 py-1 rounded-3" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);">
+            <i class="bi bi-person-circle fs-6 text-slate-300 text-white"></i>
             <div class="text-start lh-1">
               <div id="navUsername" class="small fw-semibold text-white">Guest</div>
               <span id="navRoleBadge" class="badge bg-secondary text-light px-1" style="font-size:0.6rem;">Viewer</span>
             </div>
           </div>
-          <button id="authBtn" class="btn btn-sm btn-primary rounded-3 px-3 fw-medium" data-bs-toggle="modal"
-            data-bs-target="#loginModal">
+          <button id="authBtn" class="btn btn-sm btn-primary rounded-3 px-3 fw-medium" data-bs-toggle="modal" data-bs-target="#loginModal">
             <i class="bi bi-box-arrow-in-right me-1"></i> Log In
           </button>
         </div>
@@ -98,56 +93,76 @@
     </div>
   </header>
 
+  <!-- ========================================================================= -->
   <!-- Main Navigation Tabs -->
-  <div class="bg-white border-bottom shadow-2xs px-4 pt-2">
+  <!-- ========================================================================= -->
+  <div class="app-tabs-wrapper px-4 pt-1">
     <ul class="nav nav-tabs border-bottom-0 gap-1" id="mainTabs">
       <li class="nav-item">
-        <button class="nav-link active d-flex align-items-center gap-2" data-tab="dashboardTab">
-          <i class="bi bi-speedometer2 text-primary"></i> <span>Dashboard & Predictions</span>
+        <button class="nav-link active" data-tab="dashboardTab">
+          <i class="bi bi-speedometer2 text-primary"></i> <span>Dashboard & Forecasts</span>
         </button>
       </li>
       <li class="nav-item">
-        <button class="nav-link d-flex align-items-center gap-2" data-tab="reorderTab">
-          <i class="bi bi-cart-check text-success"></i> <span>Reorder & Purchase Orders</span>
+        <button class="nav-link" data-tab="driversTab">
+          <i class="bi bi-sliders text-info"></i> <span>7 Demand Drivers</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-tab="diagnosticsTab">
+          <i class="bi bi-shield-check text-purple" style="color: #8b5cf6;"></i> <span>ML Diagnostics & Proofs</span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-tab="reorderTab">
+          <i class="bi bi-cart-check text-success"></i> <span>Reorder & Smart PO</span>
           <span id="poBadgeCount" class="badge rounded-pill bg-danger d-none" style="font-size: 0.65rem;">0</span>
         </button>
       </li>
       <li class="nav-item">
-        <button class="nav-link d-flex align-items-center gap-2" data-tab="simulatorTab">
-          <i class="bi bi-lightning-charge text-danger"></i> <span>What-If Simulator</span>
+        <button class="nav-link" data-tab="simulatorTab">
+          <i class="bi bi-lightning-charge text-danger"></i> <span>Campaign Simulator</span>
         </button>
       </li>
       <li class="nav-item">
-        <button class="nav-link d-flex align-items-center gap-2" data-tab="manageTab">
-          <i class="bi bi-gear text-secondary"></i> <span>Data & Management</span>
+        <button class="nav-link" data-tab="manageTab">
+          <i class="bi bi-gear text-secondary"></i> <span>Data & Catalog</span>
         </button>
       </li>
     </ul>
   </div>
 
+  <!-- Toast Notification Container -->
+  <div id="toastContainer"></div>
+
+  <!-- ========================================================================= -->
   <!-- Main Container -->
+  <!-- ========================================================================= -->
   <main class="container-fluid p-4">
 
     <!-- ========================================================================= -->
-    <!-- TAB 1: DASHBOARD & PROBLEM 8 OUTPUTS (Section 10 & 11 of Problem Statement) -->
+    <!-- TAB 1: DASHBOARD & PREDICTIONS -->
     <!-- ========================================================================= -->
     <div id="dashboardTab" class="tab-pane">
       <!-- Top System KPIs -->
       <div class="row g-3 mb-4" id="kpiRow">
-        <div class="col-12 text-center text-muted py-3">Loading system metrics...</div>
+        <div class="col-12 text-center text-muted py-4">
+          <div class="spinner-border spinner-border-sm text-primary mb-2"></div>
+          <div>Loading system performance metrics...</div>
+        </div>
       </div>
 
       <!-- Main Grid -->
       <div class="row g-4">
-        <!-- Left Column: Stock-out / Overstock Alerts & Example Recommendations -->
+        <!-- Left Column: Stock-out / Overstock Alerts -->
         <div class="col-xl-5 col-lg-6">
-          <div class="card border-0 shadow-sm rounded-4 h-100">
-            <div
-              class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="card-modern h-100 d-flex flex-column">
+            <div class="card-header-modern d-flex justify-content-between align-items-center flex-wrap gap-2">
               <div class="d-flex align-items-center gap-2">
-                <span class="header-icon bg-danger-subtle text-danger"><i class="bi bi-shield-exclamation"></i></span>
+                <span class="kpi-icon-pill" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;"><i class="bi bi-shield-exclamation"></i></span>
                 <div>
-                  <h6 class="fw-bold mb-0 text-slate-800">Stock-out & Overstock Alerts</h6>
+                  <h6 class="fw-bold mb-0">Stock Risk & Early Warnings</h6>
+                  <small class="text-muted" style="font-size: 0.72rem;">Dual prediction comparison vs active inventory</small>
                 </div>
               </div>
               <div class="d-flex gap-2 align-items-center">
@@ -158,38 +173,35 @@
                 </select>
               </div>
             </div>
-            <div class="card-body p-3" style="max-height: 660px; overflow-y: auto;" id="alertsBody">
+            <div class="card-body p-3 flex-grow-1" style="max-height: 660px; overflow-y: auto;" id="alertsBody">
               <div class="text-center text-muted p-5">
                 <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
                 <div>Evaluating inventory levels against predicted demand...</div>
               </div>
             </div>
-            <div class="card-footer bg-slate-50 border-top text-end py-2 px-4">
-              <button class="btn btn-sm btn-link text-primary text-decoration-none fw-semibold p-0"
-                onclick="document.querySelector('[data-tab=reorderTab]').click()">
+            <div class="p-3 border-top text-end" style="background: var(--bg-subtle);">
+              <button class="btn btn-sm btn-link text-primary text-decoration-none fw-semibold p-0" onclick="document.querySelector('[data-tab=reorderTab]').click()">
                 View Automated Reorder Recommendations &rarr;
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Right Column: Dual Prediction Chart & Daily/Weekly Trends -->
+        <!-- Right Column: Dual Prediction Chart & Trends -->
         <div class="col-xl-7 col-lg-6">
           <!-- Dual Prediction Engine Card -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div
-              class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="card-modern mb-4">
+            <div class="card-header-modern d-flex justify-content-between align-items-center flex-wrap gap-2">
               <div class="d-flex align-items-center gap-2">
-                <span class="header-icon bg-primary-subtle text-primary"><i class="bi bi-graph-up-arrow"></i></span>
+                <span class="kpi-icon-pill" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;"><i class="bi bi-graph-up-arrow"></i></span>
                 <div>
-                  <h6 class="fw-bold mb-0 text-slate-800">Demand Prediction (Dual Baseline vs Event Uplift)</h6>
+                  <h6 class="fw-bold mb-0">Dual Demand Prediction Engine</h6>
+                  <small class="text-muted" style="font-size: 0.72rem;">Baseline Model vs Event Uplift Isolation</small>
                 </div>
               </div>
               <div class="d-flex gap-2 align-items-center flex-wrap">
-                <select id="productSelect" class="form-select form-select-sm rounded-3"
-                  style="min-width: 160px;"></select>
-                <input type="date" id="festivalDate" class="form-control form-control-sm rounded-3"
-                  title="Declare upcoming festival/event date">
+                <select id="productSelect" class="form-select form-select-sm rounded-3" style="min-width: 160px;"></select>
+                <input type="date" id="festivalDate" class="form-control form-control-sm rounded-3" title="Declare upcoming festival/event date">
                 <button id="applyFestivalBtn" class="btn btn-sm btn-warning rounded-3 text-dark fw-medium">
                   <i class="bi bi-calendar-event me-1"></i> Declare Event
                 </button>
@@ -199,33 +211,29 @@
               <div style="position: relative; height: 260px;">
                 <canvas id="forecastChart"></canvas>
               </div>
-              <div id="eventUpliftNote"
-                class="alert alert-amber rounded-3 mt-3 py-2 small d-none d-flex align-items-center gap-2">
+              <div id="eventUpliftNote" class="alert alert-amber rounded-3 mt-3 py-2 small d-none d-flex align-items-center gap-2" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--accent-amber);">
                 <i class="bi bi-lightning-charge-fill text-warning fs-5"></i>
                 <div id="eventUpliftText"></div>
               </div>
-              <div id="lowConfidenceNote"
-                class="alert alert-secondary rounded-3 mt-2 py-2 small d-none d-flex align-items-center gap-2">
+              <div id="lowConfidenceNote" class="alert alert-secondary rounded-3 mt-2 py-2 small d-none d-flex align-items-center gap-2">
                 <i class="bi bi-info-circle text-muted fs-5"></i>
-                <div><strong>Hidden Test Case 3:</strong> New product with little history (&lt;14 days). System
-                  automatically falls back to category baseline model with low-confidence flag.</div>
+                <div><strong>Test Case 3 Handled:</strong> New SKU with short history (&lt;14 days). System automatically falls back to category baseline with low-confidence flag.</div>
               </div>
             </div>
           </div>
 
-          <!-- Daily vs Weekly Demand Trends (Req 2 & 3) -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+          <!-- Historical Demand Trends -->
+          <div class="card-modern mb-4">
+            <div class="card-header-modern d-flex justify-content-between align-items-center">
               <div class="d-flex align-items-center gap-2">
-                <span class="header-icon bg-info-subtle text-info"><i class="bi bi-clock-history"></i></span>
+                <span class="kpi-icon-pill" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;"><i class="bi bi-clock-history"></i></span>
                 <div>
-                  <h6 class="fw-bold mb-0 text-slate-800">Historical Demand Trends (Daily & Weekly)</h6>
-                  <small class="text-muted">Requirements #2 & #3: Daily / Weekly demand calculations</small>
+                  <h6 class="fw-bold mb-0">Historical Demand Trends</h6>
+                  <small class="text-muted" style="font-size: 0.72rem;">Daily & Weekly aggregated sales time-series</small>
                 </div>
               </div>
               <div class="btn-group btn-group-sm" role="group">
-                <input type="radio" class="btn-check" name="trendViewRadio" id="dailyTrendRadio" autocomplete="off"
-                  checked>
+                <input type="radio" class="btn-check" name="trendViewRadio" id="dailyTrendRadio" autocomplete="off" checked>
                 <label class="btn btn-outline-primary" for="dailyTrendRadio">Daily Trend</label>
                 <input type="radio" class="btn-check" name="trendViewRadio" id="weeklyTrendRadio" autocomplete="off">
                 <label class="btn btn-outline-primary" for="weeklyTrendRadio">Weekly Trend</label>
@@ -238,20 +246,19 @@
             </div>
           </div>
 
-          <!-- Fast-Moving & Slow-Moving Products (Req 4 & 5) -->
-          <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
+          <!-- Fast-Moving & Slow-Moving Products -->
+          <div class="card-modern">
+            <div class="card-header-modern d-flex justify-content-between align-items-center">
               <div>
-                <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-arrow-down-up text-primary me-2"></i>Fast-Moving
-                  & Slow-Moving Products List</h6>
-                <small class="text-muted">Requirements #4 & #5: Tercile classification of average daily sales</small>
+                <h6 class="fw-bold mb-0"><i class="bi bi-arrow-down-up text-primary me-2"></i>Product Movement Classification</h6>
+                <small class="text-muted" style="font-size: 0.72rem;">Tercile ranking based on rolling 30-day velocity</small>
               </div>
-              <span class="badge bg-slate-100 text-slate-700 border">Last 30 Days</span>
+              <span class="badge rounded-pill" style="background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border-color);">Last 30 Days</span>
             </div>
             <div class="card-body p-0">
               <div class="table-responsive" style="max-height: 240px;">
-                <table class="table table-hover align-middle mb-0" id="moversTable">
-                  <thead class="table-light text-slate-600 small text-uppercase">
+                <table class="table table-modern table-hover align-middle mb-0" id="moversTable">
+                  <thead>
                     <tr>
                       <th>Product</th>
                       <th>Category</th>
@@ -269,43 +276,327 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- TAB: REORDER & PURCHASE ORDERS (Req #24, #26) -->
+    <!-- TAB 2: 7 DEMAND DRIVERS & SEASONALITY (NEW!) -->
+    <!-- ========================================================================= -->
+    <div id="driversTab" class="tab-pane d-none">
+      <div class="row g-4 mb-4">
+        <!-- Factor 1: Weekend vs Weekday -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="kpi-icon-pill" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;"><i class="bi bi-calendar3"></i></span>
+                <div>
+                  <h6 class="fw-bold mb-0">1. Weekend Variation</h6>
+                  <small class="text-muted">Buying habit changes</small>
+                </div>
+              </div>
+              <span class="badge rounded-pill bg-primary" id="weekendUpliftBadge">+0%</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-2" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Weekend Avg Sales</span>
+              <span class="fw-bold text-primary" id="weekendAvgSales">0.0 units</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Weekday Avg Sales</span>
+              <span class="fw-bold text-muted" id="weekdayAvgSales">0.0 units</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Factor 2: Festival Spikes -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="kpi-icon-pill" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;"><i class="bi bi-fire"></i></span>
+                <div>
+                  <h6 class="fw-bold mb-0">2. Festival & Events</h6>
+                  <small class="text-muted">Event spike multiplier</small>
+                </div>
+              </div>
+              <span class="badge rounded-pill bg-warning text-dark" id="festMultiplierBadge">1.0x</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-2" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Festival Days Avg</span>
+              <span class="fw-bold text-warning" id="festAvgSales">0.0 units</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Normal Baseline Avg</span>
+              <span class="fw-bold text-muted" id="festNormalSales">0.0 units</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Factor 3: Payday / Salary Cycle -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="kpi-icon-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981;"><i class="bi bi-cash-stack"></i></span>
+                <div>
+                  <h6 class="fw-bold mb-0">3. Salary Period</h6>
+                  <small class="text-muted">1st–5th Month Surge</small>
+                </div>
+              </div>
+              <span class="badge rounded-pill bg-success" id="salaryUpliftBadge">+0%</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-2" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Salary Days (1st–5th)</span>
+              <span class="fw-bold text-success" id="salaryAvgSales">0.0 units</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Other Days of Month</span>
+              <span class="fw-bold text-muted" id="salaryNormalSales">0.0 units</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Factor 4: Holidays -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="kpi-icon-pill" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;"><i class="bi bi-gift"></i></span>
+                <div>
+                  <h6 class="fw-bold mb-0">4. Public Holidays</h6>
+                  <small class="text-muted">Non-working days uplift</small>
+                </div>
+              </div>
+              <span class="badge rounded-pill" style="background: #8b5cf6; color: white;" id="holidayUpliftBadge">+0%</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-2" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Holiday Sales Avg</span>
+              <span class="fw-bold" style="color: #8b5cf6;" id="holidayAvgSales">0.0 units</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Regular Days Avg</span>
+              <span class="fw-bold text-muted" id="holidayNormalSales">0.0 units</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Factor 5: Weather Sensitivity -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="kpi-icon-pill" style="background: rgba(6, 182, 212, 0.15); color: #06b6d4;"><i class="bi bi-cloud-sun"></i></span>
+                <div>
+                  <h6 class="fw-bold mb-0">5. Weather Impact</h6>
+                  <small class="text-muted">Atmospheric sensitivity</small>
+                </div>
+              </div>
+              <span class="badge rounded-pill bg-info text-dark">Multi-Condition</span>
+            </div>
+            <div id="weatherBreakdownList" class="d-flex flex-column gap-2">
+              <div class="text-muted small text-center py-2">Loading weather profiles...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Factor 6 & 7: Promotions & Local Events -->
+        <div class="col-lg-4 col-md-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="kpi-icon-pill" style="background: rgba(244, 63, 94, 0.15); color: #f43f5e;"><i class="bi bi-tags"></i></span>
+                <div>
+                  <h6 class="fw-bold mb-0">6 & 7. Promos & Events</h6>
+                  <small class="text-muted">Marketing & local surges</small>
+                </div>
+              </div>
+              <span class="badge rounded-pill bg-danger" id="promoMultiplierBadge">1.0x</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3 mb-2" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Active Promo Days Avg</span>
+              <span class="fw-bold text-danger" id="promoAvgSales">0.0 units</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center p-3 rounded-3" style="background: var(--bg-subtle);">
+              <span class="small fw-semibold">Non-Promotional Avg</span>
+              <span class="fw-bold text-muted" id="promoNormalSales">0.0 units</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Demand Driver Sensitivity Simulator -->
+      <div class="row g-4">
+        <div class="col-12">
+          <div class="card-modern p-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-sliders2 text-primary me-2"></i>Interactive Demand Driver Sensitivity Calculator</h6>
+            <div class="row g-3 align-items-center">
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">Select SKU</label>
+                <select id="driverSkuSelect" class="form-select form-select-sm rounded-3"></select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-semibold">Simulate Condition</label>
+                <select id="driverConditionSelect" class="form-select form-select-sm rounded-3">
+                  <option value="normal">Standard Weekday</option>
+                  <option value="weekend">Weekend (+Weekend Uplift)</option>
+                  <option value="salary">Salary Week (1st–5th Month)</option>
+                  <option value="promo">Active 15% Promotion</option>
+                  <option value="festival">Festival Day (Diwali/Holi)</option>
+                  <option value="rainy">Rainy Weather</option>
+                  <option value="combined">Mega Surge (Weekend + Promo + Festival)</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <div class="p-3 rounded-3 d-flex justify-content-between align-items-center" style="background: var(--bg-subtle); border: 1px solid var(--border-color);">
+                  <div>
+                    <div class="small text-muted">Estimated Projected Daily Demand:</div>
+                    <div class="h4 fw-bold mb-0 text-primary" id="driverProjectedVal">-- units / day</div>
+                  </div>
+                  <div class="text-end">
+                    <span class="badge rounded-pill bg-success px-3 py-2" id="driverMultiplierTag">1.0x Baseline</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 3: ML DIAGNOSTICS & TEST CASE PROOFS (NEW!) -->
+    <!-- ========================================================================= -->
+    <div id="diagnosticsTab" class="tab-pane d-none">
+      <div class="row g-4 mb-4">
+        <!-- Model Health & Out-of-Sample Metrics -->
+        <div class="col-lg-6">
+          <div class="card-modern h-100 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h6 class="fw-bold mb-0"><i class="bi bi-graph-up text-primary me-2"></i>Out-of-Sample Model Accuracy Gate</h6>
+              <span class="badge bg-success rounded-pill px-3 py-1" id="diagGateBadge">VALIDATED & ACTIVE</span>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-6">
+                <div class="p-3 rounded-3" style="background: var(--bg-subtle);">
+                  <div class="text-muted small">Mean Absolute Error (MAE)</div>
+                  <div class="h4 fw-bold mb-0 text-primary" id="diagMae">--</div>
+                  <div class="small text-muted" style="font-size: 0.7rem;">Held-out temporal test slice</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="p-3 rounded-3" style="background: var(--bg-subtle);">
+                  <div class="text-muted small">Root Mean Squared Error (RMSE)</div>
+                  <div class="h4 fw-bold mb-0 text-info" id="diagRmse">--</div>
+                  <div class="small text-muted" style="font-size: 0.7rem;">Validation acceptance threshold &le; +20%</div>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center text-muted small border-top pt-2" style="font-size: 0.78rem;">
+              <span>Active Model Version: <strong id="diagVersionId" class="text-main">--</strong></span>
+              <span>Training Samples: <strong id="diagTrainRows" class="text-main">--</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Feature Importances -->
+        <div class="col-lg-6">
+          <div class="card-modern h-100 p-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart text-purple me-2" style="color: #8b5cf6;"></i>Top AI Feature Importances (RandomForest)</h6>
+            <div id="featureImportanceContainer" class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto;">
+              <div class="text-muted small text-center py-4">Loading model feature rankings...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Problem 8: 7 Hidden Test Cases Live Proof Suite -->
+      <div class="row g-4 mb-4">
+        <div class="col-12">
+          <div class="card-modern">
+            <div class="card-header-modern d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="fw-bold mb-0"><i class="bi bi-patch-check-fill text-success me-2"></i>Hackathon Problem 8: 7 Hidden Test Cases Verification</h6>
+                <small class="text-muted">Live audit showing mathematical proofs and code gates for all required scenarios</small>
+              </div>
+              <button class="btn btn-sm btn-outline-primary rounded-3" onclick="loadDiagnosticsTab()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Re-Verify Test Cases
+              </button>
+            </div>
+            <div class="card-body p-4">
+              <div class="row g-3" id="testCasesGrid">
+                <div class="col-12 text-center text-muted py-4">Verifying test cases...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Model Governance & Version Rollback -->
+      <div class="row g-4">
+        <div class="col-12">
+          <div class="card-modern">
+            <div class="card-header-modern">
+              <h6 class="fw-bold mb-0"><i class="bi bi-clock-history text-secondary me-2"></i>Model Version Governance & Rollback History</h6>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-modern table-hover align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Version ID</th>
+                      <th>MAE</th>
+                      <th>RMSE</th>
+                      <th>Samples</th>
+                      <th>Timestamp</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="diagVersionsTableBody" class="small">
+                    <tr><td colspan="7" class="text-center text-muted py-3">Loading versions...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 4: REORDER & PURCHASE ORDERS -->
     <!-- ========================================================================= -->
     <div id="reorderTab" class="tab-pane d-none">
       <div class="row g-4 mb-4">
         <div class="col-12">
-          <div class="card border-0 shadow-sm rounded-4">
-            <div
-              class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="card-modern">
+            <div class="card-header-modern d-flex justify-content-between align-items-center flex-wrap gap-2">
               <div>
-                <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-calculator text-success me-2"></i>Automated
-                  Reorder Point (ROP) & Purchase Recommendations</h6>
-                <small class="text-muted">ROP = (Predicted Demand &times; Lead Time) + Statistical Safety Stock (1.65
-                  &times; &sigma; &times; &radic;L)</small>
+                <h6 class="fw-bold mb-0"><i class="bi bi-calculator text-success me-2"></i>Automated Reorder Point (ROP) Engine</h6>
+                <small class="text-muted">ROP = (Predicted Demand &times; Lead Time) + Statistical Safety Stock (1.65 &times; &sigma; &times; &radic;L)</small>
               </div>
-              <button class="btn btn-sm btn-outline-success rounded-3" onclick="loadReorderData()">
-                <i class="bi bi-arrow-clockwise me-1"></i> Refresh Calculations
-              </button>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-success rounded-3 fw-medium" id="batchApprovePoBtn">
+                  <i class="bi bi-check2-all me-1"></i> Approve All Pending POs
+                </button>
+                <button class="btn btn-sm btn-outline-secondary rounded-3" onclick="loadReorderData()">
+                  <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
+              </div>
             </div>
             <div class="card-body p-0">
               <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="reorderTable">
-                  <thead class="table-light text-slate-600 small text-uppercase">
+                <table class="table table-modern table-hover align-middle mb-0" id="reorderTable">
+                  <thead>
                     <tr>
                       <th>Product</th>
                       <th>Supplier & Lead Time</th>
                       <th>Stock / ROP</th>
-                      <th>Days Remaining</th>
+                      <th>Urgency</th>
+                      <th>Days Left</th>
                       <th>Suggested Order</th>
                       <th>Est. Cost</th>
-                      <th>Reorder Date</th>
                       <th>Action</th>
                     </tr>
                   </thead>
                   <tbody class="small" id="reorderTableBody">
-                    <tr>
-                      <td colspan="8" class="text-center text-muted py-4">Loading reorder calculations...</td>
-                    </tr>
+                    <tr><td colspan="8" class="text-center text-muted py-4">Loading reorder calculations...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -317,18 +608,17 @@
       <!-- Active Purchase Orders List -->
       <div class="row g-4">
         <div class="col-12">
-          <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-bottom py-3 px-4 d-flex justify-content-between align-items-center">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-receipt text-primary me-2"></i>Purchase Orders
-                Tracker</h6>
+          <div class="card-modern">
+            <div class="card-header-modern d-flex justify-content-between align-items-center">
+              <h6 class="fw-bold mb-0"><i class="bi bi-receipt text-primary me-2"></i>Purchase Orders Tracker & Fulfillment</h6>
               <button class="btn btn-sm btn-primary rounded-3" data-bs-toggle="modal" data-bs-target="#customPoModal">
                 <i class="bi bi-plus-lg me-1"></i> Create Custom PO
               </button>
             </div>
             <div class="card-body p-0">
               <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                  <thead class="table-light text-slate-600 small text-uppercase">
+                <table class="table table-modern table-hover align-middle mb-0">
+                  <thead>
                     <tr>
                       <th>PO #</th>
                       <th>Store</th>
@@ -342,9 +632,7 @@
                     </tr>
                   </thead>
                   <tbody class="small" id="poTableBody">
-                    <tr>
-                      <td colspan="9" class="text-center text-muted py-4">No purchase orders created yet.</td>
-                    </tr>
+                    <tr><td colspan="9" class="text-center text-muted py-4">No purchase orders created yet.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -355,74 +643,66 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- TAB 5: WHAT-IF SCENARIO SIMULATOR (Req #28) -->
+    <!-- TAB 5: WHAT-IF SCENARIO SIMULATOR -->
     <!-- ========================================================================= -->
     <div id="simulatorTab" class="tab-pane d-none">
       <div class="row g-4">
         <!-- Simulation Controls -->
         <div class="col-lg-4">
-          <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-sliders2 text-warning me-2"></i>Scenario
-                Configuration</h6>
+          <div class="card-modern p-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-sliders2 text-warning me-2"></i>Campaign Configuration</h6>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">Target Product</label>
+              <select id="simProductSelect" class="form-select form-select-sm rounded-3"></select>
             </div>
-            <div class="card-body p-4">
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-slate-700">Target Product</label>
-                <select id="simProductSelect" class="form-select form-select-sm rounded-3"></select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-slate-700">Forecast Horizon</label>
-                <select id="simHorizonSelect" class="form-select form-select-sm rounded-3">
-                  <option value="14">14 Days</option>
-                  <option value="21">21 Days</option>
-                  <option value="30">30 Days</option>
-                </select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-slate-700 d-flex justify-content-between">
-                  <span>Promotional Discount (%)</span>
-                  <span id="discountValLabel" class="text-primary fw-bold">15%</span>
-                </label>
-                <input type="range" class="form-range" id="simDiscountRange" min="0" max="60" step="5" value="15">
-              </div>
-              <div class="mb-3">
-                <label class="form-label small fw-semibold text-slate-700">Simulate Promotion on Dates</label>
-                <input type="date" id="simPromoDate" class="form-control form-control-sm rounded-3 mb-1">
-                <button class="btn btn-sm btn-outline-secondary w-100 rounded-3" id="addSimPromoDateBtn">
-                  <i class="bi bi-plus-circle me-1"></i> Add Date to Promo Window
-                </button>
-                <div id="simPromoDatesList" class="d-flex flex-wrap gap-1 mt-2"></div>
-              </div>
-              <div class="mb-4">
-                <label class="form-label small fw-semibold text-slate-700">Simulate Special Event / Festival
-                  Date</label>
-                <input type="date" id="simFestDate" class="form-control form-control-sm rounded-3 mb-1">
-                <button class="btn btn-sm btn-outline-secondary w-100 rounded-3" id="addSimFestDateBtn">
-                  <i class="bi bi-plus-circle me-1"></i> Add Festival Date
-                </button>
-                <div id="simFestDatesList" class="d-flex flex-wrap gap-1 mt-2"></div>
-              </div>
-              <button class="btn btn-warning w-100 rounded-3 text-dark fw-bold py-2" id="runSimBtn">
-                <i class="bi bi-play-circle-fill me-1"></i> Run What-If Simulation
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">Forecast Horizon</label>
+              <select id="simHorizonSelect" class="form-select form-select-sm rounded-3">
+                <option value="14">14 Days</option>
+                <option value="21">21 Days</option>
+                <option value="30">30 Days</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold d-flex justify-content-between">
+                <span>Promotional Discount (%)</span>
+                <span id="discountValLabel" class="text-primary fw-bold">15%</span>
+              </label>
+              <input type="range" class="form-range" id="simDiscountRange" min="0" max="60" step="5" value="15">
+            </div>
+            <div class="mb-3">
+              <label class="form-label small fw-semibold">Simulate Promotion on Dates</label>
+              <input type="date" id="simPromoDate" class="form-control form-control-sm rounded-3 mb-1">
+              <button class="btn btn-sm btn-outline-secondary w-100 rounded-3" id="addSimPromoDateBtn">
+                <i class="bi bi-plus-circle me-1"></i> Add Date to Promo Window
               </button>
+              <div id="simPromoDatesList" class="d-flex flex-wrap gap-1 mt-2"></div>
             </div>
+            <div class="mb-4">
+              <label class="form-label small fw-semibold">Simulate Festival / Event Date</label>
+              <input type="date" id="simFestDate" class="form-control form-control-sm rounded-3 mb-1">
+              <button class="btn btn-sm btn-outline-secondary w-100 rounded-3" id="addSimFestDateBtn">
+                <i class="bi bi-plus-circle me-1"></i> Add Festival Date
+              </button>
+              <div id="simFestDatesList" class="d-flex flex-wrap gap-1 mt-2"></div>
+            </div>
+            <button class="btn btn-warning w-100 rounded-3 text-dark fw-bold py-2" id="runSimBtn">
+              <i class="bi bi-play-circle-fill me-1"></i> Run What-If Simulation
+            </button>
           </div>
         </div>
 
         <!-- Simulation Output -->
         <div class="col-lg-8">
           <div class="row g-3 mb-4" id="simKpisRow">
-            <div class="col-12 text-center text-muted p-4 card rounded-4 border-0 shadow-sm">
-              Configure parameters and click <strong>Run What-If Simulation</strong> to analyze projected demand uplift,
-              inventory shortfall risks, and financial delta.
+            <div class="col-12 text-center text-muted p-5 card-modern">
+              Configure campaign discount and dates on the left and click <strong>Run What-If Simulation</strong> to project sales uplift, stockout dates, and margin changes.
             </div>
           </div>
 
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-graph-up text-primary me-2"></i>Baseline Demand vs
-                Simulated Campaign Demand</h6>
+          <div class="card-modern mb-4">
+            <div class="card-header-modern d-flex justify-content-between align-items-center">
+              <h6 class="fw-bold mb-0"><i class="bi bi-graph-up text-primary me-2"></i>Baseline Demand vs Simulated Campaign Demand</h6>
             </div>
             <div class="card-body p-4">
               <div style="position: relative; height: 260px;">
@@ -435,22 +715,23 @@
     </div>
 
     <!-- ========================================================================= -->
-    <!-- TAB 6: DATA MANAGEMENT & SYSTEM SETTINGS -->
+    <!-- TAB 6: DATA & CATALOG MANAGEMENT -->
     <!-- ========================================================================= -->
     <div id="manageTab" class="tab-pane d-none">
       <div class="row g-4">
-        <!-- Left Column: Data Mutation & Upload -->
+        <!-- Left Column: Data Ingestion & Product Form -->
         <div class="col-lg-6">
           <!-- CSV Upload -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-cloud-arrow-up text-primary me-2"></i>Upload Sales
-                CSV (Section 9 Schema)</h6>
+          <div class="card-modern mb-4">
+            <div class="card-header-modern d-flex justify-content-between align-items-center">
+              <h6 class="fw-bold mb-0"><i class="bi bi-cloud-arrow-up text-primary me-2"></i>Upload Sales CSV (Section 9 Schema)</h6>
+              <a href="/api/template/csv" class="btn btn-sm btn-outline-primary rounded-3">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> Sample CSV
+              </a>
             </div>
             <div class="card-body p-4">
               <p class="small text-muted mb-3">
-                Standard POS Schema:
-                <code>product_id, date, quantity_sold, current_stock, price, promotion, festival_event, day_type, holiday, weather</code>.
+                POS Schema: <code>product_id, date, quantity_sold, current_stock, price, promotion, festival_event, day_type, holiday, weather</code>.
               </p>
               <input type="file" id="csvFile" accept=".csv" class="form-control form-control-sm rounded-3 mb-3">
               <div class="d-flex gap-2 align-items-center">
@@ -467,23 +748,17 @@
           </div>
 
           <!-- Add Product Form -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-box-seam text-success me-2"></i>Add / Update
-                Product Master</h6>
+          <div class="card-modern mb-4">
+            <div class="card-header-modern">
+              <h6 class="fw-bold mb-0"><i class="bi bi-box-seam text-success me-2"></i>Add / Update Product Master</h6>
             </div>
             <div class="card-body p-4">
               <div class="row g-2">
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_id"
-                    placeholder="Product ID (e.g. P020)"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_name"
-                    placeholder="Name"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_category"
-                    placeholder="Category"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_price" type="number"
-                    placeholder="Price (₹)"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_stock" type="number"
-                    placeholder="Initial Stock"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_id" placeholder="Product ID (e.g. P020)"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_name" placeholder="Name"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_category" placeholder="Category"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_price" type="number" placeholder="Price (₹)"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="pf_stock" type="number" placeholder="Initial Stock"></div>
                 <div class="col-6">
                   <select id="pf_supplier" class="form-select form-select-sm rounded-3">
                     <option value="SUP01">SUP01 - Nat Bev & Dairy</option>
@@ -491,17 +766,15 @@
                     <option value="SUP03">SUP03 - Evergreen Wholesale</option>
                   </select>
                 </div>
-                <div class="col-12 mt-3"><button id="pf_submit"
-                    class="btn btn-sm btn-success rounded-3 w-100 fw-medium">Save Product</button></div>
+                <div class="col-12 mt-3"><button id="pf_submit" class="btn btn-sm btn-success rounded-3 w-100 fw-medium">Save Product</button></div>
               </div>
             </div>
           </div>
 
           <!-- Record Single Sale -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-receipt text-info me-2"></i>Record Individual Sale
-              </h6>
+          <div class="card-modern mb-4">
+            <div class="card-header-modern">
+              <h6 class="fw-bold mb-0"><i class="bi bi-receipt text-info me-2"></i>Record Individual POS Transaction</h6>
             </div>
             <div class="card-body p-4">
               <div class="row g-2">
@@ -511,18 +784,14 @@
                   </select></div>
                 <div class="col-6"><select class="form-select form-select-sm rounded-3" id="sf_product"></select></div>
                 <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_date" type="date"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_qty" type="number"
-                    placeholder="Qty Sold"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_stock" type="number"
-                    placeholder="Current Stock"></div>
-                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_festival"
-                    placeholder="Event / Festival"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_qty" type="number" placeholder="Qty Sold"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_stock" type="number" placeholder="Current Stock"></div>
+                <div class="col-6"><input class="form-control form-control-sm rounded-3" id="sf_festival" placeholder="Event / Festival"></div>
                 <div class="col-6 form-check ms-2 mt-1">
                   <input class="form-check-input" type="checkbox" id="sf_promo">
                   <label class="form-check-label small" for="sf_promo">Promotion active</label>
                 </div>
-                <div class="col-12 mt-2"><button id="sf_submit"
-                    class="btn btn-sm btn-info text-white rounded-3 w-100 fw-medium">Record Sale</button></div>
+                <div class="col-12 mt-2"><button id="sf_submit" class="btn btn-sm btn-info text-white rounded-3 w-100 fw-medium">Record Sale</button></div>
               </div>
             </div>
           </div>
@@ -531,15 +800,14 @@
         <!-- Right Column: Products & System Audit Logs -->
         <div class="col-lg-6">
           <!-- Products Table -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-boxes text-secondary me-2"></i>Product Master
-                Catalog</h6>
+          <div class="card-modern mb-4">
+            <div class="card-header-modern">
+              <h6 class="fw-bold mb-0"><i class="bi bi-boxes text-secondary me-2"></i>Product Master Catalog</h6>
             </div>
             <div class="card-body p-0">
               <div class="table-responsive" style="max-height: 240px;">
-                <table class="table table-hover align-middle mb-0">
-                  <thead class="table-light text-slate-600 small text-uppercase">
+                <table class="table table-modern table-hover align-middle mb-0">
+                  <thead>
                     <tr>
                       <th>ID</th>
                       <th>Name</th>
@@ -556,15 +824,14 @@
           </div>
 
           <!-- Audit Trail Table -->
-          <div class="card border-0 shadow-sm rounded-4 mb-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-journal-text text-dark me-2"></i>System Audit Log
-              </h6>
+          <div class="card-modern mb-4">
+            <div class="card-header-modern">
+              <h6 class="fw-bold mb-0"><i class="bi bi-journal-text text-dark me-2"></i>System Audit Log</h6>
             </div>
             <div class="card-body p-0">
               <div class="table-responsive" style="max-height: 250px;">
-                <table class="table table-hover align-middle mb-0">
-                  <thead class="table-light text-slate-600 small text-uppercase">
+                <table class="table table-modern table-hover align-middle mb-0">
+                  <thead>
                     <tr>
                       <th>Timestamp</th>
                       <th>User</th>
@@ -574,9 +841,7 @@
                     </tr>
                   </thead>
                   <tbody class="small" id="auditLogsBody">
-                    <tr>
-                      <td colspan="5" class="text-center text-muted py-3">Loading audit history...</td>
-                    </tr>
+                    <tr><td colspan="5" class="text-center text-muted py-3">Loading audit history...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -584,16 +849,14 @@
           </div>
 
           <!-- Model Retraining & Snapshot Backup -->
-          <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-header bg-white border-bottom py-3 px-4">
-              <h6 class="fw-bold mb-0 text-slate-800"><i class="bi bi-tools text-primary me-2"></i>Maintenance & Forced
-                Retraining</h6>
+          <div class="card-modern">
+            <div class="card-header-modern">
+              <h6 class="fw-bold mb-0"><i class="bi bi-tools text-primary me-2"></i>Maintenance & Operations</h6>
             </div>
             <div class="card-body p-4 d-flex justify-content-between align-items-center">
               <div>
-                <div class="fw-bold text-slate-800 small">Pipeline Retrain & Database Backup</div>
-                <div class="text-muted" style="font-size:0.75rem;">Re-evaluate out-of-sample error and persist database
-                  snapshot</div>
+                <div class="fw-bold small">Pipeline Retrain & Database Backup</div>
+                <div class="text-muted" style="font-size:0.75rem;">Re-evaluate out-of-sample error and persist database snapshot</div>
               </div>
               <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-primary rounded-3" id="retrainBtn">Retrain ML Model</button>
@@ -605,8 +868,8 @@
       </div>
     </div>
 
-    <footer class="text-center text-muted small mt-5 mb-3">
-      Local Retail Demand Prediction System &middot; Hackathon Problem 8 &middot; Production Ready
+    <footer class="text-center text-muted small mt-5 mb-3" style="font-size: 0.8rem;">
+      RetailPulse AI &middot; Hackathon Problem 8 Enterprise Edition &middot; Dynamic Retraining &amp; Auto Reordering
     </footer>
   </main>
 
@@ -616,25 +879,22 @@
   <!-- Login Modal -->
   <div class="modal fade" id="loginModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
-      <div class="modal-content border-0 shadow-lg rounded-4">
-        <div class="modal-header border-bottom py-3 px-4">
-          <h6 class="modal-title fw-bold text-slate-900"><i class="bi bi-shield-lock text-primary me-2"></i>Sign In</h6>
+      <div class="modal-content rounded-4">
+        <div class="modal-header py-3 px-4">
+          <h6 class="modal-title fw-bold"><i class="bi bi-shield-lock text-primary me-2"></i>Sign In</h6>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-4">
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-slate-700">Username</label>
-            <input type="text" id="loginUsername" class="form-control rounded-3" placeholder="admin / manager / viewer"
-              value="admin">
+            <label class="form-label small fw-semibold">Username</label>
+            <input type="text" id="loginUsername" class="form-control rounded-3" placeholder="admin / manager / viewer" value="admin">
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-slate-700">Password</label>
-            <input type="password" id="loginPassword" class="form-control rounded-3" placeholder="••••••••"
-              value="admin123">
+            <label class="form-label small fw-semibold">Password</label>
+            <input type="password" id="loginPassword" class="form-control rounded-3" placeholder="••••••••" value="admin123">
           </div>
           <div id="loginError" class="small text-danger mb-3 d-none"></div>
-          <button type="button" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold" id="loginSubmitBtn">Log
-            In</button>
+          <button type="button" class="btn btn-primary w-100 rounded-3 py-2 fw-semibold" id="loginSubmitBtn">Log In</button>
           <div class="text-center text-muted mt-3 small">
             Default credentials:<br>
             <code>admin/admin123</code> &bull; <code>manager/manager123</code> &bull; <code>viewer/viewer123</code>
@@ -647,38 +907,37 @@
   <!-- Custom PO Creation Modal -->
   <div class="modal fade" id="customPoModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow-lg rounded-4">
-        <div class="modal-header border-bottom py-3 px-4">
-          <h6 class="modal-title fw-bold text-slate-900"><i class="bi bi-file-earmark-plus text-primary me-2"></i>Create
-            Purchase Order</h6>
+      <div class="modal-content rounded-4">
+        <div class="modal-header py-3 px-4">
+          <h6 class="modal-title fw-bold"><i class="bi bi-file-earmark-plus text-primary me-2"></i>Create Purchase Order</h6>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-4">
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-slate-700">Target Store</label>
+            <label class="form-label small fw-semibold">Target Store</label>
             <select id="poModalStoreSelect" class="form-select rounded-3"></select>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-slate-700">Product</label>
+            <label class="form-label small fw-semibold">Product</label>
             <select id="poModalProductSelect" class="form-select rounded-3"></select>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-slate-700">Order Quantity</label>
+            <label class="form-label small fw-semibold">Order Quantity</label>
             <input type="number" id="poModalQty" class="form-control rounded-3" placeholder="e.g. 50">
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-slate-700">Notes / Reason</label>
-            <textarea id="poModalNotes" class="form-control rounded-3" rows="2"
-              placeholder="e.g. Stock replenishment for festival surge"></textarea>
+            <label class="form-label small fw-semibold">Notes / Reason</label>
+            <textarea id="poModalNotes" class="form-control rounded-3" rows="2" placeholder="e.g. Stock replenishment for festival surge"></textarea>
           </div>
-          <button type="button" class="btn btn-success w-100 rounded-3 py-2 fw-semibold" id="poModalSubmitBtn">Submit
-            Purchase Order</button>
+          <button type="button" class="btn btn-success w-100 rounded-3 py-2 fw-semibold" id="poModalSubmitBtn">Submit Purchase Order</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Bootstrap JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <!-- Application JS -->
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 

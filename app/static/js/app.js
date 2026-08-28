@@ -1,19 +1,116 @@
 /* ==========================================================================
-   Retail Demand Prediction System — Hackathon Problem 8 Logic
+   RetailPulse AI — Enhanced Frontend Architecture & Logic
+   Enterprise Demand Forecasting, 7 Drivers, ML Diagnostics, Smart PO & What-If
    ========================================================================== */
 
 let forecastChart, historyChart, simChart;
 let currentProducts = [];
 let currentStores = [];
 let lastKnownVersion = null;
-let currentTrendView = 'daily'; // 'daily' or 'weekly'
+let currentTrendView = 'daily';
 let currentUser = { authenticated: false, role: 'Viewer', username: 'Guest' };
+let currentFactorsData = null;
 const POLL_INTERVAL_MS = 8000;
 
 // Simulation State
 let simPromoDates = new Set();
 let simFestDates = new Set();
 
+// ---------------------------------------------------------------------------
+// Toast Notification Helper
+// ---------------------------------------------------------------------------
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification';
+  
+  let icon = 'bi-info-circle-fill text-primary';
+  if (type === 'success') icon = 'bi-check-circle-fill text-success';
+  if (type === 'warning') icon = 'bi-exclamation-triangle-fill text-warning';
+  if (type === 'danger') icon = 'bi-x-circle-fill text-danger';
+
+  toast.innerHTML = `
+    <i class="bi ${icon} fs-5"></i>
+    <div class="small fw-medium flex-grow-1">${message}</div>
+    <button type="button" class="btn-close btn-close-sm" style="font-size:0.7rem;"></button>
+  `;
+
+  const closeBtn = toast.querySelector('.btn-close');
+  closeBtn.addEventListener('click', () => {
+    toast.classList.add('hide');
+    setTimeout(() => toast.remove(), 300);
+  });
+
+  container.appendChild(toast);
+  setTimeout(() => {
+    if (toast.parentElement) {
+      toast.classList.add('hide');
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 4000);
+}
+
+// ---------------------------------------------------------------------------
+// Theme Management (Light / Dark Mode)
+// ---------------------------------------------------------------------------
+function initTheme() {
+  const savedTheme = localStorage.getItem('retailpulse_theme') || 'light';
+  applyTheme(savedTheme);
+
+  const toggleBtn = document.getElementById('themeToggleBtn');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem('retailpulse_theme', next);
+      showToast(`Switched to ${next === 'dark' ? 'Dark' : 'Light'} Mode`, 'info');
+    });
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const icon = document.getElementById('themeToggleIcon');
+  if (icon) {
+    icon.className = theme === 'dark' ? 'bi bi-sun-fill text-warning' : 'bi bi-moon-stars-fill text-white';
+  }
+  // Re-render charts with updated theme palette if initialized
+  if (forecastChart || historyChart || simChart) {
+    refreshChartsTheme();
+  }
+}
+
+function getChartColors() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    text: isDark ? '#94a3b8' : '#64748b',
+    grid: isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.6)',
+    cardBg: isDark ? '#111827' : '#ffffff',
+  };
+}
+
+function refreshChartsTheme() {
+  const c = getChartColors();
+  [forecastChart, historyChart, simChart].forEach(chart => {
+    if (!chart) return;
+    if (chart.options.scales?.x) {
+      chart.options.scales.x.ticks.color = c.text;
+      chart.options.scales.x.grid.color = c.grid;
+    }
+    if (chart.options.scales?.y) {
+      chart.options.scales.y.ticks.color = c.text;
+      chart.options.scales.y.grid.color = c.grid;
+    }
+    chart.update('none');
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Network Fetch Helper
+// ---------------------------------------------------------------------------
 async function fetchJSON(url, opts = {}) {
   try {
     const res = await fetch(url, opts);
@@ -46,6 +143,8 @@ document.querySelectorAll('#mainTabs .nav-link').forEach(btn => {
     const tabEl = document.getElementById(tabId);
     if (tabEl) tabEl.classList.remove('d-none');
 
+    if (tabId === 'driversTab') loadDemandDriversTab();
+    if (tabId === 'diagnosticsTab') loadDiagnosticsTab();
     if (tabId === 'reorderTab') loadReorderData();
     if (tabId === 'simulatorTab') initSimulatorTab();
     if (tabId === 'manageTab') loadManagementData();
@@ -97,6 +196,7 @@ document.getElementById('loginSubmitBtn')?.addEventListener('click', async () =>
     const modalEl = document.getElementById('loginModal');
     const modal = bootstrap.Modal.getInstance(modalEl);
     if (modal) modal.hide();
+    showToast(`Signed in as ${res.user.username} (${res.user.role})`, 'success');
     await checkAuth();
     await pollForChanges(true);
   }
@@ -104,6 +204,7 @@ document.getElementById('loginSubmitBtn')?.addEventListener('click', async () =>
 
 async function handleLogout() {
   await fetchJSON('/api/auth/logout', { method: 'POST' });
+  showToast('Logged out successfully', 'info');
   await checkAuth();
   await pollForChanges(true);
 }
@@ -133,569 +234,687 @@ async function loadProducts() {
 
   const sel = document.getElementById('productSelect');
   const simSel = document.getElementById('simProductSelect');
+  const driverSkuSel = document.getElementById('driverSkuSelect');
   const sfSel = document.getElementById('sf_product');
   const poProdSel = document.getElementById('poModalProductSelect');
 
   const prev = sel.value;
-  const options = currentProducts.map(p => `<option value="${p.product_id}">${p.name}</option>`).join('');
+  const options = currentProducts.map(p => `<option value="${p.product_id}">${p.name} (${p.product_id})</option>`).join('');
 
   if (sel) { sel.innerHTML = options; if (currentProducts.some(p => p.product_id === prev)) sel.value = prev; }
   if (simSel) simSel.innerHTML = options;
+  if (driverSkuSel) driverSkuSel.innerHTML = options;
   if (sfSel) sfSel.innerHTML = currentProducts.map(p => `<option value="${p.product_id}">${p.name} (${p.product_id})</option>`).join('');
   if (poProdSel) poProdSel.innerHTML = options;
 }
 
 // ---------------------------------------------------------------------------
-// Tab 1: Dashboard & Recommendations (Section 10 & 11)
+// Tab 1: Dashboard & Recommendations
 // ---------------------------------------------------------------------------
-async function loadOverview() {
+async function renderOverview() {
   const storeId = getSelectedStoreId();
   const data = await fetchJSON(`/api/overview?store_id=${storeId}`);
   if (data.error) return;
 
-  document.getElementById('dateRangeLabel').textContent = data.date_range && data.date_range[0]
-    ? `Data Window: ${data.date_range[0]} → ${data.date_range[1]}` : 'No records yet';
-
-  const kpis = [
-    { label: 'Products Tracked', value: data.total_products, icon: 'bi-box-seam text-primary' },
-    { label: 'Sales Records (Step 1)', value: data.total_records.toLocaleString(), icon: 'bi-database-check text-info' },
-    { label: 'Total Units Sold', value: data.total_units_sold.toLocaleString(), icon: 'bi-bar-chart-fill text-success' },
-    { label: 'Cleaned Gaps (Step 2)', value: `${data.data_quality.missing_records_filled} records`, icon: 'bi-shield-check text-secondary' },
-  ];
-
-  document.getElementById('kpiRow').innerHTML = kpis.map(k => `
-    <div class="col-6 col-md-4 col-xl">
-      <div class="kpi-card">
-        <div class="d-flex justify-content-between align-items-center">
-          <div class="kpi-value">${k.value}</div>
-          <i class="bi ${k.icon} fs-4"></i>
+  const kpiRow = document.getElementById('kpiRow');
+  kpiRow.innerHTML = `
+    <div class="col-xl-3 col-md-6">
+      <div class="kpi-card-v2 kpi-emerald">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="kpi-label-v2">Total Active SKUs</div>
+            <div class="kpi-value-v2">${data.total_products}</div>
+          </div>
+          <span class="kpi-icon-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">
+            <i class="bi bi-box-seam"></i>
+          </span>
         </div>
-        <div class="kpi-label">${k.label}</div>
+        <div class="small text-muted mt-2">Active catalog entries</div>
       </div>
-    </div>`).join('');
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="kpi-card-v2">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="kpi-label-v2">Sales Volume (Units)</div>
+            <div class="kpi-value-v2">${Number(data.total_units_sold).toLocaleString('en-IN')}</div>
+          </div>
+          <span class="kpi-icon-pill" style="background: rgba(79, 70, 229, 0.15); color: #4f46e5;">
+            <i class="bi bi-cart-check"></i>
+          </span>
+        </div>
+        <div class="small text-muted mt-2">Historical units cleared</div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="kpi-card-v2 kpi-purple">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="kpi-label-v2">Total Gross Revenue</div>
+            <div class="kpi-value-v2">${fmtMoney(data.total_revenue)}</div>
+          </div>
+          <span class="kpi-icon-pill" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">
+            <i class="bi bi-cash-coin"></i>
+          </span>
+        </div>
+        <div class="small text-muted mt-2">Aggregate transaction value</div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="kpi-card-v2 kpi-amber">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="kpi-label-v2">Cleaned Data Quality</div>
+            <div class="kpi-value-v2">${data.data_quality ? data.data_quality.total_rows_after_cleaning : 0}</div>
+          </div>
+          <span class="kpi-icon-pill" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">
+            <i class="bi bi-shield-check"></i>
+          </span>
+        </div>
+        <div class="small text-muted mt-2">${data.data_quality ? data.data_quality.missing_records_filled : 0} calendar gaps resolved</div>
+      </div>
+    </div>
+  `;
 
-  return data.version;
+  const dRange = data.date_range;
+  if (dRange && dRange[0] && dRange[1]) {
+    document.getElementById('dateRangeLabel').textContent = `Data Horizon: ${dRange[0]} to ${dRange[1]}`;
+  }
 }
 
-async function loadAlerts() {
+async function renderAlerts() {
+  const horizon = document.getElementById('horizonSelect')?.value || 7;
   const storeId = getSelectedStoreId();
-  const horizon = document.getElementById('horizonSelect').value;
   const alerts = await fetchJSON(`/api/alerts?horizon=${horizon}&store_id=${storeId}`);
-  const body = document.getElementById('alertsBody');
-
-  if (!Array.isArray(alerts) || !alerts.length) {
-    body.innerHTML = '<div class="text-center text-muted p-4">No inventory alerts found.</div>';
+  const container = document.getElementById('alertsBody');
+  if (!Array.isArray(alerts) || alerts.length === 0) {
+    container.innerHTML = `<div class="text-center text-muted p-5">No active stock alerts found.</div>`;
     return;
   }
 
-  // Render cards exactly following Section 11 Example Recommendation Format
-  body.innerHTML = alerts.map(a => {
-    const cls = a.status === 'Stock-Out Risk' ? 'stockout' : a.status === 'Overstock Risk' ? 'overstock' : 'balanced';
-    const badgeCls = a.status === 'Stock-Out Risk' ? 'stockout-badge' : a.status === 'Overstock Risk' ? 'overstock-badge' : 'balanced-badge';
-    const lowConf = a.low_confidence ? '<span class="low-confidence-pill">category baseline</span>' : '';
+  container.innerHTML = alerts.map(a => {
+    let cssClass = 'balanced';
+    let badgeClass = 'badge-balanced';
+    let icon = 'bi-check-circle text-success';
+    if (a.status === 'Stock-Out Risk') {
+      cssClass = 'stockout';
+      badgeClass = 'badge-stockout';
+      icon = 'bi-exclamation-octagon text-danger';
+    } else if (a.status === 'Overstock Risk') {
+      cssClass = 'overstock';
+      badgeClass = 'badge-overstock';
+      icon = 'bi-exclamation-triangle text-warning';
+    }
 
     return `
-      <div class="alert-item ${cls} mb-3">
+      <div class="alert-item-v2 ${cssClass}">
         <div class="d-flex justify-content-between align-items-start mb-2">
           <div>
-            <div class="small text-muted text-uppercase fw-bold" style="font-size:0.7rem;">Product</div>
-            <h6 class="fw-bold mb-0 text-slate-900">${a.product_name} ${lowConf}</h6>
+            <strong class="d-block" style="font-size: 0.92rem;">${a.product_name}</strong>
+            <span class="text-muted small" style="font-size: 0.75rem;">SKU: ${a.product_id} &bull; Store: ${a.store_id || 'S001'}</span>
           </div>
-          <span class="status-badge ${badgeCls}">${a.status}</span>
+          <span class="badge rounded-pill px-3 py-1 ${badgeClass}">${a.status}</span>
         </div>
-
-        <div class="row g-2 mb-2 py-2 px-1 bg-light rounded-3 small">
-          <div class="col-6">
-            <span class="text-muted">Predicted demand:</span> <strong>${a.predicted_demand_horizon} units</strong> (next ${a.lead_time_days || horizon}D)
-          </div>
-          <div class="col-6">
-            <span class="text-muted">Current stock:</span> <strong>${a.current_stock} units</strong>
-          </div>
+        <div class="d-flex justify-content-between small text-muted my-2 p-2 rounded-3" style="background: var(--bg-subtle);">
+          <div>Current Stock: <strong class="text-main">${a.current_stock}</strong></div>
+          <div>${horizon}D Predicted Demand: <strong class="text-main">${a.predicted_demand_horizon}</strong></div>
         </div>
-
-        <div class="mb-1 small">
-          <span class="fw-bold text-slate-800">Recommendation:</span> <span class="text-slate-700">${a.recommendation || a.alert || 'Monitor inventory'}</span>
-        </div>
-
-        <div class="small text-muted">
-          <span class="fw-bold text-slate-700">Reason:</span> ${a.reason}
-        </div>
-
-        ${a.status === 'Stock-Out Risk' ? `
-          <div class="mt-2 pt-2 border-top d-flex justify-content-end">
-            <button class="btn btn-xs btn-outline-danger py-1 px-3 small rounded-3 fw-medium" onclick="openPoModalForProduct('${a.product_id}')">
-              <i class="bi bi-cart-plus me-1"></i> Replenish Stock
-            </button>
-          </div>` : ''}
-      </div>`;
+        ${a.alert ? `<div class="small fw-semibold text-danger mt-1"><i class="bi ${icon} me-1"></i> ${a.alert}</div>` : ''}
+      </div>
+    `;
   }).join('');
 }
 
-async function loadForecast(productId, festivalDates = []) {
-  if (!productId) return;
-  const storeId = getSelectedStoreId();
-  const festParam = festivalDates.length ? `&festivals=${festivalDates.join(',')}` : '';
-  const data = await fetchJSON(`/api/predict/${productId}?horizon=14&store_id=${storeId}${festParam}`);
-  if (!data || data.error) return;
+async function renderForecast() {
+  const productSelect = document.getElementById('productSelect');
+  if (!productSelect || !productSelect.value) return;
 
-  const ctx = document.getElementById('forecastChart');
+  const productId = productSelect.value;
+  const festivalDate = document.getElementById('festivalDate')?.value;
+  const storeId = getSelectedStoreId();
+  const horizon = 7;
+
+  let url = `/api/predict/${productId}?horizon=${horizon}&store_id=${storeId}`;
+  if (festivalDate) url += `&festivals=${festivalDate}`;
+
+  const data = await fetchJSON(url);
+  if (data.error) return;
+
+  const noteEl = document.getElementById('eventUpliftNote');
+  const noteText = document.getElementById('eventUpliftText');
+  const lowConfNote = document.getElementById('lowConfidenceNote');
+
+  if (data.event_uplift_detected) {
+    noteEl.classList.remove('d-none');
+    noteText.innerHTML = `<strong>Special Event Uplift Active:</strong> Baseline demand of ${data.total_baseline_demand} units increased to <strong>${data.total_predicted_demand} units</strong> (+${data.event_uplift_pct}%) on declared event days.`;
+  } else {
+    noteEl.classList.add('d-none');
+  }
+
+  if (data.low_confidence) {
+    lowConfNote.classList.remove('d-none');
+  } else {
+    lowConfNote.classList.add('d-none');
+  }
+
+  const labels = data.forecast.map(f => f.date);
+  const baselineValues = data.forecast.map(f => f.baseline_demand);
+  const predictedValues = data.forecast.map(f => f.predicted_demand);
+
+  const colors = getChartColors();
+  const ctx = document.getElementById('forecastChart').getContext('2d');
   if (forecastChart) forecastChart.destroy();
+
   forecastChart = new Chart(ctx, {
+    type: 'line',
     data: {
-      labels: data.forecast.map(f => f.date),
+      labels,
       datasets: [
         {
-          type: 'line',
-          label: 'Baseline (Normal Daily Demand)',
-          data: data.forecast.map(f => f.baseline_demand),
-          borderColor: '#94a3b8',
-          borderWidth: 2,
+          label: 'Baseline Demand (Normal)',
+          data: baselineValues,
+          borderColor: '#64748b',
+          backgroundColor: 'transparent',
           borderDash: [5, 5],
+          borderWidth: 2,
           pointRadius: 3,
-          fill: false,
+          tension: 0.3
         },
         {
-          type: 'bar',
-          label: 'Predicted Demand (with Event Spikes)',
-          data: data.forecast.map(f => f.predicted_demand),
-          backgroundColor: data.forecast.map(f => (f.is_festival || f.is_promotion) ? '#f59e0b' : '#2563eb'),
-          borderRadius: 6,
+          label: 'Event/Promo Adjusted Demand',
+          data: predictedValues,
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79, 70, 229, 0.08)',
+          fill: true,
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: '#4f46e5',
+          tension: 0.3
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { position: 'bottom', labels: { boxWidth: 12, font: { family: 'Inter' } } },
-        tooltip: {
-          callbacks: {
-            footer: (items) => {
-              const idx = items[0].dataIndex;
-              const f = data.forecast[idx];
-              return f.event_uplift > 0 ? `⚡ Special-Event Demand Uplift: +${f.event_uplift} units` : '';
-            }
-          }
-        }
+        legend: { position: 'top', labels: { color: colors.text, boxWidth: 12, usePointStyle: true } },
+        tooltip: { padding: 10, cornerRadius: 8 }
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-        x: { grid: { display: false } }
+        x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
+        y: { ticks: { color: colors.text }, grid: { color: colors.grid }, title: { display: true, text: 'Units / Day', color: colors.text } }
       }
     }
   });
-
-  const totalUplift = data.forecast.reduce((s, f) => s + f.event_uplift, 0);
-  const upliftNote = document.getElementById('eventUpliftNote');
-  if (totalUplift > 0.5) {
-    upliftNote.classList.remove('d-none');
-    document.getElementById('eventUpliftText').innerHTML =
-      `<strong>Section 7 Handled:</strong> Special event detected! Predicted demand is <strong>+${totalUplift.toFixed(1)} units</strong> above baseline. The model isolates the spike and does NOT treat it as new normal daily demand.`;
-  } else {
-    upliftNote.classList.add('d-none');
-  }
-
-  const lowConfNote = document.getElementById('lowConfidenceNote');
-  if (data.low_confidence) {
-    lowConfNote.classList.remove('d-none');
-  } else {
-    lowConfNote.classList.add('d-none');
-  }
 }
 
-async function loadHistory(productId) {
-  if (!productId) return;
-  const storeId = getSelectedStoreId();
-  let dataUrl = currentTrendView === 'weekly'
-    ? `/api/demand/weekly?product_id=${productId}&store_id=${storeId}`
-    : `/api/demand/daily?product_id=${productId}&store_id=${storeId}`;
+async function renderHistory() {
+  const productSelect = document.getElementById('productSelect');
+  if (!productSelect || !productSelect.value) return;
 
-  const data = await fetchJSON(dataUrl);
+  const productId = productSelect.value;
+  const storeId = getSelectedStoreId();
+  const endpoint = currentTrendView === 'daily' ?
+    `/api/demand/daily?product_id=${productId}&store_id=${storeId}` :
+    `/api/demand/weekly?product_id=${productId}&store_id=${storeId}`;
+
+  const data = await fetchJSON(endpoint);
   if (!Array.isArray(data)) return;
 
-  const recent = data.slice(-50);
-  const labels = recent.map(d => (currentTrendView === 'weekly' ? `Wk of ${d.week.slice(0, 10)}` : d.date));
-  const values = recent.map(d => (currentTrendView === 'weekly' ? d.weekly_demand : d.daily_demand));
+  const labels = data.map(d => currentTrendView === 'daily' ? d.date : d.week);
+  const values = data.map(d => d.total_quantity_sold);
 
-  const ctx = document.getElementById('historyChart');
+  const colors = getChartColors();
+  const ctx = document.getElementById('historyChart').getContext('2d');
   if (historyChart) historyChart.destroy();
+
   historyChart = new Chart(ctx, {
-    type: currentTrendView === 'weekly' ? 'bar' : 'line',
+    type: 'bar',
     data: {
-      labels: labels,
+      labels,
       datasets: [{
-        label: currentTrendView === 'weekly' ? 'Weekly Units Sold' : 'Daily Units Sold',
+        label: `${currentTrendView === 'daily' ? 'Daily' : 'Weekly'} Sales (Units)`,
         data: values,
-        borderColor: '#0284c7',
-        backgroundColor: currentTrendView === 'weekly' ? 'rgba(2, 132, 199, 0.6)' : 'rgba(2, 132, 199, 0.08)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 2,
+        backgroundColor: 'rgba(6, 182, 212, 0.65)',
+        borderColor: '#06b6d4',
+        borderWidth: 1,
         borderRadius: 4,
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { padding: 10, cornerRadius: 8 }
+      },
       scales: {
-        x: { ticks: { maxTicksLimit: 8 }, grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: '#f1f5f9' } }
+        x: { ticks: { color: colors.text, maxTicksLimit: 14 }, grid: { display: false } },
+        y: { ticks: { color: colors.text }, grid: { color: colors.grid } }
       }
     }
   });
 }
 
-async function loadMovers() {
+async function renderMovers() {
   const storeId = getSelectedStoreId();
   const movers = await fetchJSON(`/api/movers?store_id=${storeId}`);
   const tbody = document.querySelector('#moversTable tbody');
-  if (!Array.isArray(movers) || !movers.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-3">No mover data available.</td></tr>';
+  if (!Array.isArray(movers) || movers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">No product data available.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = movers.map(m => {
-    const badgeClass = m.movement_class === 'Fast-Moving' ? 'bg-success-subtle text-success fw-bold' :
-      m.movement_class === 'Slow-Moving' ? 'bg-danger-subtle text-danger fw-bold' : 'bg-warning-subtle text-warning';
+    let pillClass = 'bg-secondary';
+    if (m.movement_class === 'Fast-Moving') pillClass = 'bg-success';
+    if (m.movement_class === 'Slow-Moving') pillClass = 'bg-danger';
+
     return `
       <tr>
-        <td class="fw-semibold text-slate-800">${m.product_name}</td>
-        <td><span class="badge bg-slate-100 text-slate-700">${m.category}</span></td>
-        <td><strong>${m.avg_daily_demand}</strong> units/day</td>
-        <td><span class="badge ${badgeClass} rounded-pill">${m.movement_class}</span></td>
-      </tr>`;
+        <td class="fw-semibold">${m.product_name} <span class="text-muted small">(${m.product_id})</span></td>
+        <td>${m.category}</td>
+        <td><strong>${m.avg_daily_demand}</strong> u/day</td>
+        <td><span class="badge rounded-pill ${pillClass}">${m.movement_class}</span></td>
+      </tr>
+    `;
   }).join('');
 }
 
-function refreshProductViews() {
-  const productId = document.getElementById('productSelect').value;
-  loadHistory(productId);
-  loadForecast(productId);
-}
-
-async function refreshDashboard() {
-  await loadOverview();
-  await loadAlerts();
-  await loadMovers();
-  refreshProductViews();
-}
-
 // ---------------------------------------------------------------------------
-// Tab 3: 7 Factors & Hidden Test Cases Inspector (Section 3 & 8)
+// TAB 2: 7 DEMAND DRIVERS & SEASONALITY (NEW!)
 // ---------------------------------------------------------------------------
-async function loadFactorsAndHiddenCases() {
+async function loadDemandDriversTab() {
   const storeId = getSelectedStoreId();
-  const factors = await fetchJSON(`/api/factors/analysis?store_id=${storeId}`);
-  const hiddenCases = await fetchJSON('/api/hidden-test-cases/verify');
+  const productSelect = document.getElementById('driverSkuSelect');
+  const productId = productSelect?.value || '';
 
-  // Render 7 Factors
-  const container = document.getElementById('factorsAnalysisContainer');
-  if (factors.weekends) {
-    container.innerHTML = `
-      <div class="row g-3">
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded-4 border">
-            <h6 class="fw-bold text-primary mb-1"><i class="bi bi-calendar-week me-1"></i> 1. Weekends</h6>
-            <div class="small text-muted mb-2">Weekend demand vs Weekday demand</div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Weekend Avg: <strong>${factors.weekends.avg_weekend}</strong></span>
-              <span class="badge bg-primary">+${factors.weekends.uplift_pct}% Surge</span>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded-4 border">
-            <h6 class="fw-bold text-warning mb-1"><i class="bi bi-calendar-event me-1"></i> 2. Festivals</h6>
-            <div class="small text-muted mb-2">Spike multiplier on festival dates</div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Festival Avg: <strong>${factors.festivals.avg_festival}</strong></span>
-              <span class="badge bg-warning text-dark">${factors.festivals.multiplier}x Demand</span>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded-4 border">
-            <h6 class="fw-bold text-success mb-1"><i class="bi bi-cash-coin me-1"></i> 3. Salary Periods</h6>
-            <div class="small text-muted mb-2">1st-5th of month purchasing power</div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Salary Days Avg: <strong>${factors.salary_period.avg_salary_days}</strong></span>
-              <span class="badge bg-success">+${factors.salary_period.uplift_pct}% Uplift</span>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded-4 border">
-            <h6 class="fw-bold text-info mb-1"><i class="bi bi-tag-fill me-1"></i> 4. Promotions</h6>
-            <div class="small text-muted mb-2">Active promotional campaigns</div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Promo Avg: <strong>${factors.promotions.avg_promo}</strong></span>
-              <span class="badge bg-info text-white">${factors.promotions.multiplier}x Surge</span>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded-4 border">
-            <h6 class="fw-bold text-secondary mb-1"><i class="bi bi-cloud-sun me-1"></i> 5. Weather Conditions</h6>
-            <div class="small text-muted mb-2">Demand distribution by weather</div>
-            <div class="small">
-              ${Object.entries(factors.weather || {}).map(([w, v]) => `<strong>${w}:</strong> ${v} units`).join(' &bull; ')}
-            </div>
-          </div>
-        </div>
-        <div class="col-md-4">
-          <div class="p-3 bg-light rounded-4 border">
-            <h6 class="fw-bold text-purple mb-1"><i class="bi bi-geo-alt-fill me-1"></i> 6 & 7. Holidays & Local Events</h6>
-            <div class="small text-muted mb-2">Special declared holiday impact</div>
-            <div class="d-flex justify-content-between align-items-center">
-              <span>Holiday Avg: <strong>${factors.holidays.avg_holiday}</strong></span>
-              <span class="badge bg-dark">+${factors.holidays.uplift_pct}%</span>
-            </div>
-          </div>
-        </div>
-      </div>`;
+  let url = `/api/factors/analysis?store_id=${storeId}`;
+  if (productId) url += `&product_id=${productId}`;
+
+  const data = await fetchJSON(url);
+  currentFactorsData = data;
+  if (!data || data.error) return;
+
+  // 1. Weekend Variation
+  const wk = data.weekends || {};
+  document.getElementById('weekendUpliftBadge').textContent = `${wk.uplift_pct >= 0 ? '+' : ''}${wk.uplift_pct}%`;
+  document.getElementById('weekendAvgSales').textContent = `${wk.avg_weekend || 0} units`;
+  document.getElementById('weekdayAvgSales').textContent = `${wk.avg_weekday || 0} units`;
+
+  // 2. Festival & Events
+  const fest = data.festivals || {};
+  document.getElementById('festMultiplierBadge').textContent = `${fest.multiplier || 1.0}x Surge`;
+  document.getElementById('festAvgSales').textContent = `${fest.avg_festival || 0} units`;
+  document.getElementById('festNormalSales').textContent = `${fest.avg_normal || 0} units`;
+
+  // 3. Salary Period
+  const sal = data.salary_period || {};
+  document.getElementById('salaryUpliftBadge').textContent = `${sal.uplift_pct >= 0 ? '+' : ''}${sal.uplift_pct}%`;
+  document.getElementById('salaryAvgSales').textContent = `${sal.avg_salary_days || 0} units`;
+  document.getElementById('salaryNormalSales').textContent = `${sal.avg_other_days || 0} units`;
+
+  // 4. Holidays
+  const hol = data.holidays || {};
+  document.getElementById('holidayUpliftBadge').textContent = `${hol.uplift_pct >= 0 ? '+' : ''}${hol.uplift_pct}%`;
+  document.getElementById('holidayAvgSales').textContent = `${hol.avg_holiday || 0} units`;
+  document.getElementById('holidayNormalSales').textContent = `${hol.avg_normal || 0} units`;
+
+  // 5. Weather Sensitivity Breakdown
+  const weatherList = document.getElementById('weatherBreakdownList');
+  const wData = data.weather || {};
+  if (Object.keys(wData).length === 0) {
+    weatherList.innerHTML = `<div class="text-muted small text-center py-2">No weather data recorded.</div>`;
+  } else {
+    weatherList.innerHTML = Object.entries(wData).map(([condition, avg]) => `
+      <div class="d-flex justify-content-between align-items-center p-2 rounded-3" style="background: var(--bg-subtle);">
+        <span class="small fw-semibold"><i class="bi bi-cloud me-2 text-info"></i>${condition}</span>
+        <span class="fw-bold text-main">${avg} units</span>
+      </div>
+    `).join('');
   }
 
-  // Render 7 Hidden Test Cases Table
-  const tbody = document.getElementById('hiddenCasesBody');
-  if (hiddenCases) {
-    tbody.innerHTML = Object.values(hiddenCases).map(c => `
+  // 6 & 7. Promos & Events
+  const promo = data.promotions || {};
+  document.getElementById('promoMultiplierBadge').textContent = `${promo.multiplier || 1.0}x Surge`;
+  document.getElementById('promoAvgSales').textContent = `${promo.avg_promo || 0} units`;
+  document.getElementById('promoNormalSales').textContent = `${promo.avg_normal || 0} units`;
+
+  updateDriverCalculator();
+}
+
+function updateDriverCalculator() {
+  if (!currentFactorsData) return;
+  const cond = document.getElementById('driverConditionSelect')?.value || 'normal';
+  const wk = currentFactorsData.weekends || {};
+  const fest = currentFactorsData.festivals || {};
+  const sal = currentFactorsData.salary_period || {};
+  const promo = currentFactorsData.promotions || {};
+
+  const base = wk.avg_weekday || 20.0;
+  let mult = 1.0;
+
+  if (cond === 'weekend') mult = (wk.avg_weekend / base) || 1.35;
+  if (cond === 'salary') mult = (1 + (sal.uplift_pct || 25) / 100);
+  if (cond === 'promo') mult = promo.multiplier || 1.45;
+  if (cond === 'festival') mult = fest.multiplier || 1.85;
+  if (cond === 'rainy') mult = 0.90;
+  if (cond === 'combined') mult = (wk.avg_weekend / base || 1.35) * (promo.multiplier || 1.4) * (fest.multiplier || 1.7);
+
+  const projected = (base * mult).toFixed(1);
+  document.getElementById('driverProjectedVal').textContent = `${projected} units / day`;
+  document.getElementById('driverMultiplierTag').textContent = `${mult.toFixed(2)}x Baseline Multiplier`;
+}
+
+document.getElementById('driverConditionSelect')?.addEventListener('change', updateDriverCalculator);
+document.getElementById('driverSkuSelect')?.addEventListener('change', loadDemandDriversTab);
+
+// ---------------------------------------------------------------------------
+// TAB 3: ML DIAGNOSTICS & TEST CASE PROOFS (NEW!)
+// ---------------------------------------------------------------------------
+async function loadDiagnosticsTab() {
+  const metricsData = await fetchJSON('/api/model/metrics');
+  const testCasesData = await fetchJSON('/api/hidden-test-cases/verify');
+
+  // Metrics
+  if (metricsData && metricsData.current_metrics) {
+    const m = metricsData.current_metrics;
+    document.getElementById('diagMae').textContent = `${m.mae} units`;
+    document.getElementById('diagRmse').textContent = `${m.rmse} units`;
+    document.getElementById('diagVersionId').textContent = m.version_id;
+    document.getElementById('diagTrainRows').textContent = `${m.training_rows} clean rows`;
+    
+    const gateBadge = document.getElementById('diagGateBadge');
+    if (m.accepted) {
+      gateBadge.className = 'badge bg-success rounded-pill px-3 py-1';
+      gateBadge.textContent = 'VALIDATED & ACTIVE';
+    } else {
+      gateBadge.className = 'badge bg-danger rounded-pill px-3 py-1';
+      gateBadge.textContent = 'GATE REJECTED (HIGH ERROR)';
+    }
+  }
+
+  // Feature Importances
+  const fiContainer = document.getElementById('featureImportanceContainer');
+  if (metricsData && metricsData.feature_importances && metricsData.feature_importances.length > 0) {
+    fiContainer.innerHTML = metricsData.feature_importances.map(f => `
+      <div>
+        <div class="d-flex justify-content-between small fw-semibold mb-1">
+          <span class="text-main">${f.feature}</span>
+          <span class="text-primary">${f.importance}%</span>
+        </div>
+        <div class="importance-bar-track">
+          <div class="importance-bar-fill" style="width: ${Math.min(f.importance * 2.5, 100)}%;"></div>
+        </div>
+      </div>
+    `).join('');
+  } else {
+    fiContainer.innerHTML = `<div class="text-muted small text-center py-3">No feature weights available yet.</div>`;
+  }
+
+  // 7 Hidden Test Cases Verification Cards
+  const tcGrid = document.getElementById('testCasesGrid');
+  if (testCasesData && !testCasesData.error) {
+    tcGrid.innerHTML = Object.entries(testCasesData).map(([key, tc]) => `
+      <div class="col-lg-6">
+        <div class="test-case-card h-100">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h6 class="fw-bold mb-0 text-main" style="font-size:0.9rem;">${tc.name}</h6>
+            <span class="badge rounded-pill bg-success px-2 py-1">${tc.status}</span>
+          </div>
+          <p class="small text-muted mb-2">${tc.solution}</p>
+          ${tc.proof ? `<div class="small fw-semibold text-primary"><i class="bi bi-check2-circle me-1"></i>${tc.proof}</div>` : ''}
+          ${tc.excluded_count !== undefined ? `<div class="small text-muted">Filtered Censored/Anomaly Rows: <strong>${tc.excluded_count}</strong></div>` : ''}
+          ${tc.anomaly_count !== undefined ? `<div class="small text-muted">Outliers Cleared: <strong>${tc.anomaly_count}</strong></div>` : ''}
+          ${tc.filled_count !== undefined ? `<div class="small text-muted">Calendar Gaps Auto-Filled: <strong>${tc.filled_count}</strong></div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Historical Versions Table
+  const vBody = document.getElementById('diagVersionsTableBody');
+  if (metricsData && Array.isArray(metricsData.historical_versions)) {
+    vBody.innerHTML = metricsData.historical_versions.map(v => `
       <tr>
-        <td class="fw-bold text-slate-900">${c.name}</td>
+        <td class="fw-semibold text-primary">${v.version_id}</td>
+        <td>${v.mae || '--'}</td>
+        <td>${v.rmse || '--'}</td>
+        <td>${v.sample_count || '--'}</td>
+        <td>${v.trained_at || '--'}</td>
         <td>
-          <div class="text-slate-800">${c.solution}</div>
-          ${c.proof ? `<div class="text-muted small mt-1"><em>${c.proof}</em></div>` : ''}
-          ${c.excluded_count !== undefined ? `<span class="badge bg-slate-100 text-slate-700 mt-1">${c.excluded_count} censored rows excluded from training</span>` : ''}
-          ${c.filled_count !== undefined ? `<span class="badge bg-slate-100 text-slate-700 mt-1">${c.filled_count} missing date gaps filled</span>` : ''}
-          ${c.anomaly_count !== undefined ? `<span class="badge bg-slate-100 text-slate-700 mt-1">${c.anomaly_count} statistical anomalies excluded</span>` : ''}
+          <span class="badge rounded-pill ${v.is_active ? 'bg-success' : 'bg-secondary'}">
+            ${v.is_active ? 'Active Deployed' : 'Archived'}
+          </span>
         </td>
-        <td><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> ${c.status}</span></td>
-      </tr>`).join('');
+        <td>
+          ${v.is_active ? '<span class="text-muted small">Current</span>' : `
+            <button class="btn btn-xs btn-outline-warning rounded-3 px-2 py-0" onclick="rollbackModel('${v.version_id}')">
+              Rollback
+            </button>
+          `}
+        </td>
+      </tr>
+    `).join('');
+  }
+}
+
+async function rollbackModel(versionId) {
+  if (currentUser.role !== 'Admin') {
+    showToast('Admin privilege required for model rollback', 'danger');
+    return;
+  }
+  const res = await fetchJSON(`/api/model/rollback/${versionId}`, { method: 'POST' });
+  if (res.error) {
+    showToast(`Rollback failed: ${res.error}`, 'danger');
+  } else {
+    showToast(`Successfully rolled back to version ${versionId}`, 'success');
+    await loadDiagnosticsTab();
+    await pollForChanges(true);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Tab 4: Reorder & Purchase Orders (Req #24, #26)
+// TAB 4: REORDER & SMART PURCHASE ORDERS
 // ---------------------------------------------------------------------------
 async function loadReorderData() {
   const storeId = getSelectedStoreId();
   const recommendations = await fetchJSON(`/api/reorder/recommendations?store_id=${storeId}`);
-  const tbody = document.getElementById('reorderTableBody');
+  const poList = await fetchJSON(`/api/po/list?store_id=${storeId}`);
 
-  if (!Array.isArray(recommendations) || !recommendations.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No replenishment recommendations available.</td></tr>';
-    return;
+  // Reorder Table
+  const reorderBody = document.getElementById('reorderTableBody');
+  if (!Array.isArray(recommendations) || recommendations.length === 0) {
+    reorderBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4">All SKU inventory levels are within safe operating thresholds.</td></tr>`;
+  } else {
+    reorderBody.innerHTML = recommendations.map(r => {
+      let urgencyBadge = '<span class="badge bg-success">Optimal</span>';
+      if (r.days_remaining <= 3) urgencyBadge = '<span class="badge bg-danger">Critical (&lt;3D)</span>';
+      else if (r.days_remaining <= 7) urgencyBadge = '<span class="badge bg-warning text-dark">High (4-7D)</span>';
+
+      return `
+        <tr>
+          <td class="fw-semibold">${r.product_name} <span class="text-muted small">(${r.product_id})</span></td>
+          <td>${r.supplier_id || 'SUP01'} <span class="badge bg-light text-dark border ms-1">${r.lead_time_days}D Lead</span></td>
+          <td><strong class="text-main">${r.current_stock}</strong> / ${r.reorder_point}</td>
+          <td>${urgencyBadge}</td>
+          <td>${r.days_remaining} days</td>
+          <td><strong class="text-primary">${r.suggested_order_qty}</strong> units</td>
+          <td>${fmtMoney(r.suggested_order_qty * (r.unit_price || 50))}</td>
+          <td>
+            <button class="btn btn-sm btn-primary rounded-3 px-3 py-1" onclick="quickCreatePo('${r.product_id}', '${r.suggested_order_qty}')">
+              <i class="bi bi-cart-plus me-1"></i> Order
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
 
-  tbody.innerHTML = recommendations.map(r => {
-    const urgencyBadge = r.urgency === 'High' ? 'bg-danger text-white' :
-      r.urgency === 'Medium' ? 'bg-warning text-dark' : 'bg-success-subtle text-success';
-    return `
-      <tr>
-        <td>
-          <div class="fw-bold text-slate-900">${r.product_name}</div>
-          <span class="badge ${urgencyBadge}" style="font-size:0.65rem;">${r.urgency} Urgency</span>
-        </td>
-        <td>
-          <div class="text-slate-800 small">${r.supplier_name}</div>
-          <div class="text-muted" style="font-size:0.75rem;">Lead Time: <strong>${r.lead_time_days} days</strong> | MOQ: ${r.moq}</div>
-        </td>
-        <td>
-          <div>Stock: <strong>${r.current_stock}</strong> / ROP: <strong>${r.reorder_point}</strong></div>
-          <div class="text-muted" style="font-size:0.75rem;">Safety Buffer: ${r.safety_stock} units</div>
-        </td>
-        <td>
-          <span class="badge bg-slate-100 text-slate-800">${r.days_stock_remaining} days</span>
-        </td>
-        <td>
-          <strong class="${r.reorder_needed ? 'text-danger' : 'text-slate-700'}">${r.suggested_order_qty} units</strong>
-        </td>
-        <td>${fmtMoney(r.estimated_order_cost)}</td>
-        <td>
-          <div>${r.reorder_by_date}</div>
-          <div class="text-muted" style="font-size:0.72rem;">Arrival: ${r.expected_arrival_date}</div>
-        </td>
-        <td>
-          <button class="btn btn-sm ${r.reorder_needed ? 'btn-primary' : 'btn-outline-secondary'} rounded-3 py-1 px-3"
-                  onclick="triggerDirectPo('${r.product_id}', ${r.suggested_order_qty || r.moq})">
-            <i class="bi bi-cart-plus me-1"></i> Order
-          </button>
-        </td>
-      </tr>`;
-  }).join('');
+  // Active POs
+  const poBody = document.getElementById('poTableBody');
+  const poBadge = document.getElementById('poBadgeCount');
+  if (!Array.isArray(poList) || poList.length === 0) {
+    poBody.innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4">No purchase orders created yet.</td></tr>`;
+    poBadge.classList.add('d-none');
+  } else {
+    const pendingCount = poList.filter(p => p.status === 'Pending').length;
+    if (pendingCount > 0) {
+      poBadge.textContent = pendingCount;
+      poBadge.classList.remove('d-none');
+    } else {
+      poBadge.classList.add('d-none');
+    }
 
-  await loadPurchaseOrdersList();
+    poBody.innerHTML = poList.map(po => {
+      let statusBadge = 'bg-secondary';
+      if (po.status === 'Approved') statusBadge = 'bg-info text-dark';
+      if (po.status === 'Ordered') statusBadge = 'bg-primary';
+      if (po.status === 'Received') statusBadge = 'bg-success';
+      if (po.status === 'Cancelled') statusBadge = 'bg-danger';
+
+      return `
+        <tr>
+          <td class="fw-semibold text-primary">${po.po_id}</td>
+          <td>${po.store_name || po.store_id}</td>
+          <td>${po.product_name}</td>
+          <td>${po.supplier_name || po.supplier_id}</td>
+          <td><strong>${po.order_qty}</strong></td>
+          <td>${po.order_date}</td>
+          <td>${po.expected_date || '--'}</td>
+          <td><span class="badge rounded-pill ${statusBadge}">${po.status}</span></td>
+          <td>
+            <select class="form-select form-select-sm rounded-3 py-0" style="font-size:0.75rem;" onchange="updatePoStatus('${po.po_id}', this.value)">
+              <option value="Pending" ${po.status === 'Pending' ? 'selected' : ''}>Pending</option>
+              <option value="Approved" ${po.status === 'Approved' ? 'selected' : ''}>Approved</option>
+              <option value="Ordered" ${po.status === 'Ordered' ? 'selected' : ''}>Ordered</option>
+              <option value="Received" ${po.status === 'Received' ? 'selected' : ''}>Received</option>
+              <option value="Cancelled" ${po.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
 }
 
-async function loadPurchaseOrdersList() {
+async function quickCreatePo(productId, qty) {
+  if (currentUser.role === 'Viewer') {
+    showToast('Manager or Admin permissions required to generate POs.', 'warning');
+    return;
+  }
   const storeId = getSelectedStoreId();
-  const orders = await fetchJSON(`/api/po/list?store_id=${storeId}`);
-  const tbody = document.getElementById('poTableBody');
-
-  if (!Array.isArray(orders) || !orders.length) {
-    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No purchase orders found.</td></tr>';
-    return;
-  }
-
-  document.getElementById('poBadgeCount').textContent = orders.length;
-  document.getElementById('poBadgeCount').classList.remove('d-none');
-
-  tbody.innerHTML = orders.map(po => {
-    const statusCls = po.status === 'Pending' ? 'bg-warning text-dark' :
-      po.status === 'Approved' ? 'bg-info text-white' :
-        po.status === 'Ordered' ? 'bg-primary text-white' :
-          po.status === 'Received' ? 'bg-success text-white' : 'bg-secondary text-white';
-
-    return `
-      <tr>
-        <td class="fw-bold">${po.po_id}</td>
-        <td>${po.store_name}</td>
-        <td>${po.product_name}</td>
-        <td>${po.supplier_name}</td>
-        <td><strong>${po.order_qty}</strong></td>
-        <td>${po.order_date}</td>
-        <td>${po.expected_date || 'N/A'}</td>
-        <td><span class="badge ${statusCls}">${po.status}</span></td>
-        <td>
-          <select class="form-select form-select-sm py-0 ps-1" onchange="updatePoStatus('${po.po_id}', this.value)">
-            <option value="">Update...</option>
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Ordered">Ordered</option>
-            <option value="Received">Received</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
-        </td>
-      </tr>`;
-  }).join('');
-}
-
-async function triggerDirectPo(productId, qty) {
-  const storeId = getSelectedStoreId() === 'all' ? 'S001' : getSelectedStoreId();
   const res = await fetchJSON('/api/po/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ product_id: productId, store_id: storeId, order_qty: qty, notes: 'Automated ROP recommendation trigger' })
+    body: JSON.stringify({
+      product_id: productId,
+      order_qty: qty,
+      store_id: storeId === 'all' ? 'S001' : storeId,
+      notes: 'Automated ROP replenishment trigger'
+    })
   });
 
   if (res.error) {
-    alert(res.error);
+    showToast(`Failed creating PO: ${res.error}`, 'danger');
   } else {
-    alert(`Purchase Order ${res.po.po_id} created successfully!`);
-    await loadPurchaseOrdersList();
+    showToast(`Created Purchase Order #${res.po.po_id} for ${qty} units!`, 'success');
+    await loadReorderData();
   }
 }
-
-function openPoModalForProduct(productId) {
-  document.querySelector('[data-tab=reorderTab]').click();
-  const prodSel = document.getElementById('poModalProductSelect');
-  if (prodSel) prodSel.value = productId;
-  const modal = new bootstrap.Modal(document.getElementById('customPoModal'));
-  modal.show();
-}
-
-document.getElementById('poModalSubmitBtn')?.addEventListener('click', async () => {
-  const store_id = document.getElementById('poModalStoreSelect').value;
-  const product_id = document.getElementById('poModalProductSelect').value;
-  const order_qty = parseFloat(document.getElementById('poModalQty').value || 0);
-  const notes = document.getElementById('poModalNotes').value;
-
-  if (!product_id || order_qty <= 0) {
-    alert('Please choose a product and enter a valid quantity.');
-    return;
-  }
-
-  const res = await fetchJSON('/api/po/create', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ store_id, product_id, order_qty, notes })
-  });
-
-  if (res.error) {
-    alert(res.error);
-  } else {
-    const modal = bootstrap.Modal.getInstance(document.getElementById('customPoModal'));
-    if (modal) modal.hide();
-    alert(`Purchase Order created successfully!`);
-    await loadPurchaseOrdersList();
-  }
-});
 
 async function updatePoStatus(poId, newStatus) {
-  if (!newStatus) return;
+  if (currentUser.role === 'Viewer') {
+    showToast('Manager or Admin permissions required to update PO status.', 'warning');
+    return;
+  }
   const res = await fetchJSON('/api/po/status', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ po_id: poId, status: newStatus })
   });
+
   if (res.error) {
-    if (res.status_code === 401 || res.status_code === 403 || res.error.includes('Unauthorized') || res.error.includes('Forbidden')) {
-      alert('Updating Purchase Order status requires Manager or Admin privileges. Please click Log In (top-right) and sign in as manager or admin.');
-      const modalEl = document.getElementById('loginModal');
-      if (modalEl) {
-        const modal = new bootstrap.Modal(modalEl);
-        modal.show();
-      }
-    } else {
-      alert(res.error);
-    }
+    showToast(`Status update failed: ${res.error}`, 'danger');
   } else {
-    alert(`Purchase Order ${poId} status updated to ${newStatus}`);
+    showToast(`PO #${poId} status updated to ${newStatus}`, 'success');
+    await loadReorderData();
   }
-  await loadPurchaseOrdersList();
 }
 
+document.getElementById('batchApprovePoBtn')?.addEventListener('click', async () => {
+  if (currentUser.role === 'Viewer') {
+    showToast('Manager or Admin permissions required for batch approval.', 'warning');
+    return;
+  }
+  const res = await fetchJSON('/api/po/batch-approve', { method: 'POST' });
+  if (res.error) {
+    showToast(`Batch approval failed: ${res.error}`, 'danger');
+  } else {
+    showToast(`Successfully approved ${res.approved_count} pending purchase orders!`, 'success');
+    await loadReorderData();
+  }
+});
+
 // ---------------------------------------------------------------------------
-// Tab 5: What-If Simulator (Req #28)
+// TAB 5: WHAT-IF SCENARIO SIMULATOR
 // ---------------------------------------------------------------------------
 function initSimulatorTab() {
-  const discRange = document.getElementById('simDiscountRange');
-  discRange.addEventListener('input', () => {
-    document.getElementById('discountValLabel').textContent = `${discRange.value}%`;
-  });
-
-  document.getElementById('addSimPromoDateBtn').onclick = () => {
-    const d = document.getElementById('simPromoDate').value;
-    if (d) {
-      simPromoDates.add(d);
-      renderSimTags();
-    }
-  };
-
-  document.getElementById('addSimFestDateBtn').onclick = () => {
-    const d = document.getElementById('simFestDate').value;
-    if (d) {
-      simFestDates.add(d);
-      renderSimTags();
-    }
-  };
-
-  document.getElementById('runSimBtn').onclick = executeSimulation;
+  const discountRange = document.getElementById('simDiscountRange');
+  const discountLabel = document.getElementById('discountValLabel');
+  if (discountRange && discountLabel) {
+    discountRange.oninput = () => {
+      discountLabel.textContent = `${discountRange.value}%`;
+    };
+  }
 }
 
-function renderSimTags() {
-  document.getElementById('simPromoDatesList').innerHTML = Array.from(simPromoDates).map(d =>
-    `<span class="badge bg-primary text-white py-1 px-2">${d} <span style="cursor:pointer;" onclick="simPromoDates.delete('${d}');renderSimTags();">&times;</span></span>`
-  ).join('');
+document.getElementById('addSimPromoDateBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('simPromoDate');
+  if (input && input.value) {
+    simPromoDates.add(input.value);
+    renderSimDateTags('simPromoDatesList', simPromoDates);
+  }
+});
 
-  document.getElementById('simFestDatesList').innerHTML = Array.from(simFestDates).map(d =>
-    `<span class="badge bg-warning text-dark py-1 px-2">${d} <span style="cursor:pointer;" onclick="simFestDates.delete('${d}');renderSimTags();">&times;</span></span>`
-  ).join('');
+document.getElementById('addSimFestDateBtn')?.addEventListener('click', () => {
+  const input = document.getElementById('simFestDate');
+  if (input && input.value) {
+    simFestDates.add(input.value);
+    renderSimDateTags('simFestDatesList', simFestDates);
+  }
+});
+
+function renderSimDateTags(containerId, set) {
+  const c = document.getElementById(containerId);
+  if (!c) return;
+  c.innerHTML = Array.from(set).map(d => `
+    <span class="badge bg-primary-subtle text-primary rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1">
+      ${d} <i class="bi bi-x-circle cursor-pointer" onclick="removeSimDate('${containerId}', '${d}')"></i>
+    </span>
+  `).join('');
 }
 
-async function executeSimulation() {
-  const product_id = document.getElementById('simProductSelect').value;
-  const horizon = parseInt(document.getElementById('simHorizonSelect').value);
-  const discount_pct = parseFloat(document.getElementById('simDiscountRange').value);
-  const store_id = getSelectedStoreId();
+function removeSimDate(containerId, dateStr) {
+  if (containerId === 'simPromoDatesList') simPromoDates.delete(dateStr);
+  if (containerId === 'simFestDatesList') simFestDates.delete(dateStr);
+  renderSimDateTags(containerId, containerId === 'simPromoDatesList' ? simPromoDates : simFestDates);
+}
+
+document.getElementById('runSimBtn')?.addEventListener('click', async () => {
+  const productId = document.getElementById('simProductSelect')?.value;
+  const horizon = parseInt(document.getElementById('simHorizonSelect')?.value || '14', 10);
+  const discountPct = parseFloat(document.getElementById('simDiscountRange')?.value || '15');
+  const storeId = getSelectedStoreId();
 
   const payload = {
-    product_id,
+    product_id: productId,
     horizon,
-    discount_pct,
+    discount_pct: discountPct,
     promo_dates: Array.from(simPromoDates),
     festival_dates: Array.from(simFestDates),
-    store_id: store_id === 'all' ? null : store_id,
+    store_id: storeId
   };
 
   const res = await fetchJSON('/api/simulate', {
@@ -704,105 +923,196 @@ async function executeSimulation() {
     body: JSON.stringify(payload)
   });
 
-  if (res.error) { alert(res.error); return; }
+  if (res.error) {
+    showToast(`Simulation error: ${res.error}`, 'danger');
+    return;
+  }
 
-  const kpisHtml = `
-    <div class="col-md-3">
-      <div class="kpi-card text-center">
-        <div class="kpi-value text-primary">${res.total_simulated_demand}</div>
-        <div class="kpi-label">Projected Demand (${horizon}D)</div>
-        <div class="small text-muted mt-1">vs ${res.total_baseline_demand} baseline</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="kpi-card text-center">
-        <div class="kpi-value text-success">+${res.net_demand_uplift}</div>
-        <div class="kpi-label">Simulated Demand Uplift</div>
-        <div class="small text-muted mt-1">+${((res.net_demand_uplift / (res.total_baseline_demand || 1)) * 100).toFixed(0)}% campaign surge</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="kpi-card text-center">
-        <div class="kpi-value ${res.revenue_delta >= 0 ? 'text-success' : 'text-danger'}">${fmtMoney(res.revenue_delta)}</div>
-        <div class="kpi-label">Revenue Impact (Delta)</div>
-        <div class="small text-muted mt-1">Total: ${fmtMoney(res.simulated_revenue)}</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="kpi-card text-center">
-        <div class="kpi-value ${res.stock_shortfall > 0 ? 'text-danger' : 'text-success'}">${res.stock_shortfall}</div>
-        <div class="kpi-label">Projected Shortfall Units</div>
-        <div class="small text-muted mt-1">${res.risk_assessment}</div>
-      </div>
-    </div>`;
-  document.getElementById('simKpisRow').innerHTML = kpisHtml;
+  showToast('What-If Campaign Simulation completed successfully!', 'success');
 
-  const ctx = document.getElementById('simChart');
+  // Render Simulation KPIs
+  const kpisRow = document.getElementById('simKpisRow');
+  kpisRow.innerHTML = `
+    <div class="col-md-3 col-6">
+      <div class="kpi-card-v2">
+        <div class="kpi-label-v2">Simulated Demand</div>
+        <div class="kpi-value-v2 text-primary">${res.simulated_total_units} <span class="fs-6 text-muted">units</span></div>
+        <div class="small text-success">+${res.uplift_percentage}% vs Baseline</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="kpi-card-v2 kpi-purple">
+        <div class="kpi-label-v2">Projected Revenue</div>
+        <div class="kpi-value-v2" style="color: #8b5cf6;">${fmtMoney(res.simulated_revenue)}</div>
+        <div class="small text-muted">${fmtMoney(res.baseline_revenue)} baseline</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="kpi-card-v2 ${res.stockout_risk ? 'kpi-rose' : 'kpi-emerald'}">
+        <div class="kpi-label-v2">Stock Shortfall Risk</div>
+        <div class="kpi-value-v2 ${res.stockout_risk ? 'text-danger' : 'text-success'}">${res.stockout_risk ? `${res.stock_shortfall_units} units` : 'Safe'}</div>
+        <div class="small text-muted">${res.stockout_risk ? `Depleted by ${res.stockout_date}` : 'Stock Sufficient'}</div>
+      </div>
+    </div>
+    <div class="col-md-3 col-6">
+      <div class="kpi-card-v2 kpi-amber d-flex flex-column justify-content-between">
+        <div>
+          <div class="kpi-label-v2">Safety Stock Buffer</div>
+          <div class="kpi-value-v2 text-warning">${res.recommended_buffer_units || 30} u</div>
+        </div>
+        ${res.stockout_risk ? `
+          <button class="btn btn-xs btn-danger rounded-3 mt-2 fw-medium" onclick="quickCreatePo('${productId}', '${res.stock_shortfall_units + 20}')">
+            Order Shortfall
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  // Render Simulation Chart
+  const labels = res.timeline.map(t => t.date);
+  const baselineData = res.timeline.map(t => t.baseline_demand);
+  const campaignData = res.timeline.map(t => t.simulated_demand);
+
+  const colors = getChartColors();
+  const ctx = document.getElementById('simChart').getContext('2d');
   if (simChart) simChart.destroy();
+
   simChart = new Chart(ctx, {
+    type: 'line',
     data: {
-      labels: res.timeline.map(t => t.date),
+      labels,
       datasets: [
         {
-          type: 'line',
-          label: 'Normal Baseline Demand',
-          data: res.timeline.map(t => t.baseline_demand),
+          label: 'Baseline Organic Demand',
+          data: baselineData,
           borderColor: '#94a3b8',
-          borderDash: [5, 5],
-          pointRadius: 2,
+          borderDash: [4, 4],
+          borderWidth: 2,
           fill: false,
+          tension: 0.3
         },
         {
-          type: 'bar',
-          label: 'Simulated Campaign Demand',
-          data: res.timeline.map(t => t.simulated_demand),
-          backgroundColor: res.timeline.map(t => (t.is_promotion || t.is_festival) ? '#f59e0b' : '#2563eb'),
-          borderRadius: 6,
+          label: `Campaign Demand (${discountPct}% Promo + Events)`,
+          data: campaignData,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          fill: true,
+          borderWidth: 3,
+          pointRadius: 4,
+          pointBackgroundColor: '#f59e0b',
+          tension: 0.3
         }
       ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom' } },
-      scales: { y: { beginAtZero: true } }
+      plugins: {
+        legend: { position: 'top', labels: { color: colors.text, usePointStyle: true } },
+        tooltip: { padding: 10, cornerRadius: 8 }
+      },
+      scales: {
+        x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
+        y: { ticks: { color: colors.text }, grid: { color: colors.grid }, title: { display: true, text: 'Units / Day', color: colors.text } }
+      }
     }
   });
-}
+});
 
 // ---------------------------------------------------------------------------
-// Tab 6: Management, CRUD & Admin
+// TAB 6: DATA & CATALOG MANAGEMENT
 // ---------------------------------------------------------------------------
 async function loadManagementData() {
-  await loadProductsMgmt();
-  await loadAuditLogs();
-}
-
-async function loadProductsMgmt() {
   const products = await fetchJSON('/api/manage/products');
-  const tbody = document.getElementById('productsMgmtBody');
-  if (!Array.isArray(products)) return;
+  const logs = await fetchJSON('/api/audit?limit=50');
 
-  tbody.innerHTML = products.map(p => `
-    <tr>
-      <td class="fw-bold">${p.product_id}</td>
-      <td>${p.name}</td>
-      <td><span class="badge bg-slate-100 text-slate-700">${p.category}</span></td>
-      <td>${fmtMoney(p.price)}</td>
-      <td>${p.supplier_name || 'SUP01'}</td>
-      <td><button class="btn btn-xs btn-outline-danger py-0 px-2" onclick="deleteProduct('${p.product_id}')">✕</button></td>
-    </tr>`).join('');
+  // Products Table
+  const pBody = document.getElementById('productsMgmtBody');
+  if (Array.isArray(products)) {
+    pBody.innerHTML = products.map(p => `
+      <tr>
+        <td class="fw-semibold">${p.product_id}</td>
+        <td>${p.name}</td>
+        <td>${p.category}</td>
+        <td>₹${p.price}</td>
+        <td>${p.supplier_id || 'SUP01'}</td>
+        <td class="text-end">
+          <button class="btn btn-xs btn-outline-danger rounded-3" onclick="deleteProduct('${p.product_id}')">
+            <i class="bi bi-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // Audit Logs Table
+  const aBody = document.getElementById('auditLogsBody');
+  if (Array.isArray(logs)) {
+    aBody.innerHTML = logs.map(l => `
+      <tr>
+        <td class="text-muted" style="font-size:0.75rem;">${l.timestamp}</td>
+        <td class="fw-semibold">${l.user}</td>
+        <td><span class="badge bg-light text-dark border">${l.action}</span></td>
+        <td>${l.target_type || '--'}</td>
+        <td class="text-muted small">${l.details || '--'}</td>
+      </tr>
+    `).join('');
+  }
 }
 
-async function deleteProduct(id) {
-  if (!confirm(`Delete product ${id} and all associated sales records?`)) return;
-  const res = await fetchJSON(`/api/manage/products/${id}`, { method: 'DELETE' });
-  if (res.error) { alert(res.error); return; }
-  await loadProductsMgmt();
-  await loadProducts();
-  await pollForChanges(true);
+async function deleteProduct(productId) {
+  if (currentUser.role !== 'Admin') {
+    showToast('Admin privilege required to delete SKUs.', 'danger');
+    return;
+  }
+  if (!confirm(`Are you sure you want to delete product ${productId}?`)) return;
+  const res = await fetchJSON(`/api/manage/products/${productId}`, { method: 'DELETE' });
+  if (res.error) {
+    showToast(`Delete failed: ${res.error}`, 'danger');
+  } else {
+    showToast(`Deleted product ${productId}`, 'success');
+    await loadProducts();
+    await loadManagementData();
+    await pollForChanges(true);
+  }
 }
 
+// Upload CSV Handler
+document.getElementById('uploadBtn')?.addEventListener('click', async () => {
+  const fileInput = document.getElementById('csvFile');
+  const mode = document.getElementById('uploadMode').value;
+  const resultDiv = document.getElementById('uploadResult');
+
+  if (!fileInput.files || fileInput.files.length === 0) {
+    resultDiv.innerHTML = '<span class="text-danger">Please select a CSV file first.</span>';
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('mode', mode);
+
+  resultDiv.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm me-1"></div> Uploading and triggering retrain pipeline...</span>';
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.error) {
+      resultDiv.innerHTML = `<span class="text-danger">${data.error}</span>`;
+      showToast(`Upload failed: ${data.error}`, 'danger');
+    } else {
+      resultDiv.innerHTML = `<span class="text-success">Ingested ${data.rows_ingested} records. Background model retraining started!</span>`;
+      showToast(`CSV Uploaded successfully (${data.rows_ingested} rows)`, 'success');
+      fileInput.value = '';
+      await pollForChanges(true);
+    }
+  } catch (err) {
+    resultDiv.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
+  }
+});
+
+// Add Product Form Handler
 document.getElementById('pf_submit')?.addEventListener('click', async () => {
   const payload = {
     product_id: document.getElementById('pf_id').value.trim(),
@@ -810,24 +1120,34 @@ document.getElementById('pf_submit')?.addEventListener('click', async () => {
     category: document.getElementById('pf_category').value.trim(),
     price: parseFloat(document.getElementById('pf_price').value || 0),
     initial_stock: parseFloat(document.getElementById('pf_stock').value || 0),
-    supplier_id: document.getElementById('pf_supplier').value,
+    supplier_id: document.getElementById('pf_supplier').value
   };
-  if (!payload.product_id || !payload.name || !payload.category) {
-    alert('Product ID, name, and category are required.');
+
+  if (!payload.product_id || !payload.name) {
+    showToast('Product ID and Name are required.', 'warning');
     return;
   }
+
   const res = await fetchJSON('/api/manage/products', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  if (res.error) { alert(res.error); return; }
-  ['pf_id', 'pf_name', 'pf_category', 'pf_price', 'pf_stock'].forEach(id => document.getElementById(id).value = '');
-  await loadProductsMgmt();
-  await loadProducts();
-  await pollForChanges(true);
+
+  if (res.error) {
+    showToast(`Failed saving product: ${res.error}`, 'danger');
+  } else {
+    showToast(`Product ${payload.name} saved successfully!`, 'success');
+    ['pf_id', 'pf_name', 'pf_category', 'pf_price', 'pf_stock'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    await loadProducts();
+    await loadManagementData();
+  }
 });
 
+// Single Sale Form Handler
 document.getElementById('sf_submit')?.addEventListener('click', async () => {
   const payload = {
     store_id: document.getElementById('sf_store').value,
@@ -836,159 +1156,172 @@ document.getElementById('sf_submit')?.addEventListener('click', async () => {
     quantity_sold: parseFloat(document.getElementById('sf_qty').value || 0),
     current_stock: parseFloat(document.getElementById('sf_stock').value || 0),
     festival_event: document.getElementById('sf_festival').value.trim(),
-    promotion: document.getElementById('sf_promo').checked ? 1 : 0,
+    promotion: document.getElementById('sf_promo').checked ? 1 : 0
   };
-  if (!payload.product_id || !payload.date) {
-    alert('Product and date are required.');
+
+  if (!payload.product_id || !payload.date || payload.quantity_sold <= 0) {
+    showToast('Valid Product, Date, and Quantity Sold are required.', 'warning');
     return;
   }
+
   const res = await fetchJSON('/api/manage/sales', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  if (res.error) { alert(res.error); return; }
-  ['sf_date', 'sf_qty', 'sf_stock', 'sf_festival'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('sf_promo').checked = false;
-  alert('Sale record added.');
-  await pollForChanges(true);
-});
-
-async function loadAuditLogs() {
-  const logs = await fetchJSON('/api/audit?limit=50');
-  const tbody = document.getElementById('auditLogsBody');
-  if (!Array.isArray(logs) || !logs.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No audit trail records found.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = logs.map(l => `
-    <tr>
-      <td class="text-muted" style="font-size:0.75rem;">${l.timestamp}</td>
-      <td class="fw-semibold">${l.username}</td>
-      <td><span class="badge bg-slate-100 text-slate-800">${l.action}</span></td>
-      <td>${l.entity_type} ${l.entity_id ? `(${l.entity_id})` : ''}</td>
-      <td class="text-muted small">${l.details || ''}</td>
-    </tr>`).join('');
-}
-
-// CSV Upload
-document.getElementById('uploadBtn')?.addEventListener('click', async () => {
-  const fileInput = document.getElementById('csvFile');
-  const mode = document.getElementById('uploadMode').value;
-  const resultDiv = document.getElementById('uploadResult');
-  if (!fileInput.files.length) { alert('Select a CSV file first.'); return; }
-
-  const formData = new FormData();
-  formData.append('file', fileInput.files[0]);
-  formData.append('mode', mode);
-
-  resultDiv.innerHTML = '<span class="text-primary"><i class="bi bi-arrow-repeat spin me-1"></i> Ingesting and retraining pipeline...</span>';
-  const res = await fetchJSON('/api/upload', { method: 'POST', body: formData });
 
   if (res.error) {
-    resultDiv.innerHTML = `<span class="text-danger">${res.error}</span>`;
+    showToast(`Failed recording sale: ${res.error}`, 'danger');
   } else {
-    resultDiv.innerHTML = `<span class="text-success">Ingested ${res.rows_ingested} rows (${res.mode}). Pipeline refreshed!</span>`;
-    fileInput.value = '';
+    showToast(`Recorded sale for ${payload.product_id}! Retraining in background.`, 'success');
+    ['sf_qty', 'sf_stock', 'sf_festival'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
     await pollForChanges(true);
   }
 });
 
+// Retrain Button
 document.getElementById('retrainBtn')?.addEventListener('click', async () => {
   const res = await fetchJSON('/api/retrain', { method: 'POST' });
-  if (res.error) { alert(res.error); }
-  else { alert('Forced retrain triggered in background worker.'); await pollForChanges(true); }
+  if (res.error) {
+    showToast(`Retrain trigger failed: ${res.error}`, 'danger');
+  } else {
+    showToast('Manual model retraining queued!', 'info');
+    await pollForChanges(true);
+  }
 });
 
+// Backup DB Button
 document.getElementById('backupDbBtn')?.addEventListener('click', async () => {
   const res = await fetchJSON('/api/manage/backup', { method: 'POST' });
-  if (res.error) alert(res.error);
-  else alert(`Database snapshot backup created successfully at: ${res.backup_path}`);
+  if (res.error) {
+    showToast(`Backup failed: ${res.error}`, 'danger');
+  } else {
+    showToast(`Snapshot created at ${res.backup_path}`, 'success');
+  }
 });
 
-// Export Handlers
+// Custom PO Modal Submit
+document.getElementById('poModalSubmitBtn')?.addEventListener('click', async () => {
+  const storeId = document.getElementById('poModalStoreSelect').value;
+  const productId = document.getElementById('poModalProductSelect').value;
+  const orderQty = parseFloat(document.getElementById('poModalQty').value || 0);
+  const notes = document.getElementById('poModalNotes').value;
+
+  if (!productId || orderQty <= 0) {
+    showToast('Select product and enter a positive order quantity.', 'warning');
+    return;
+  }
+
+  const res = await fetchJSON('/api/po/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ store_id: storeId, product_id: productId, order_qty: orderQty, notes })
+  });
+
+  if (res.error) {
+    showToast(`PO creation error: ${res.error}`, 'danger');
+  } else {
+    showToast(`Created Custom PO #${res.po.po_id}!`, 'success');
+    const modalEl = document.getElementById('customPoModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+    await loadReorderData();
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Event Listeners & Trend Toggles
+// ---------------------------------------------------------------------------
+document.getElementById('globalStoreSelect')?.addEventListener('change', () => {
+  pollForChanges(true);
+  showToast(`Store filter updated`, 'info');
+});
+
+document.getElementById('horizonSelect')?.addEventListener('change', () => {
+  renderAlerts();
+});
+
+document.getElementById('productSelect')?.addEventListener('change', () => {
+  renderForecast();
+  renderHistory();
+});
+
+document.getElementById('applyFestivalBtn')?.addEventListener('click', () => {
+  renderForecast();
+  showToast('Applied declared festival to forecast horizon', 'info');
+});
+
+document.getElementById('dailyTrendRadio')?.addEventListener('change', () => {
+  currentTrendView = 'daily';
+  renderHistory();
+});
+
+document.getElementById('weeklyTrendRadio')?.addEventListener('change', () => {
+  currentTrendView = 'weekly';
+  renderHistory();
+});
+
+// Export PDF Handlers
 document.getElementById('exportPdfAlerts')?.addEventListener('click', (e) => {
   e.preventDefault();
-  window.open(`/api/export/pdf?type=alerts&store_id=${getSelectedStoreId()}`, '_blank');
+  const storeId = getSelectedStoreId();
+  window.open(`/api/export/pdf?type=alerts&store_id=${storeId}`, '_blank');
 });
 
 document.getElementById('exportPdfMovers')?.addEventListener('click', (e) => {
   e.preventDefault();
-  window.open(`/api/export/pdf?type=movers&store_id=${getSelectedStoreId()}`, '_blank');
+  const storeId = getSelectedStoreId();
+  window.open(`/api/export/pdf?type=movers&store_id=${storeId}`, '_blank');
 });
 
+// Export CSV Handlers
 document.getElementById('exportCsvRaw')?.addEventListener('click', (e) => {
   e.preventDefault();
-  window.open(`/api/export/csv?type=sales&store_id=${getSelectedStoreId()}`, '_blank');
+  const storeId = getSelectedStoreId();
+  window.location.href = `/api/export/csv?type=raw&store_id=${storeId}`;
 });
 
 document.getElementById('exportCsvOrders')?.addEventListener('click', (e) => {
   e.preventDefault();
-  window.open(`/api/export/csv?type=orders&store_id=${getSelectedStoreId()}`, '_blank');
+  const storeId = getSelectedStoreId();
+  window.location.href = `/api/export/csv?type=orders&store_id=${storeId}`;
 });
 
 // ---------------------------------------------------------------------------
-// Live Polling & Init
+// Polling & Reactive Live Updates
 // ---------------------------------------------------------------------------
 async function pollForChanges(force = false) {
-  try {
-    const status = await fetchJSON('/api/status');
-    const badge = document.getElementById('liveBadge');
-    if (force || lastKnownVersion === null || status.version !== lastKnownVersion) {
-      lastKnownVersion = status.version;
-      badge.textContent = 'LIVE';
-      badge.className = 'status-indicator-badge live';
-      await refreshDashboard();
-    }
-  } catch (e) {
-    const badge = document.getElementById('liveBadge');
-    if (badge) {
-      badge.textContent = 'OFFLINE';
-      badge.className = 'status-indicator-badge offline';
-    }
+  const status = await fetchJSON('/api/status');
+  if (status.error) return;
+
+  if (force || lastKnownVersion === null || status.version !== lastKnownVersion) {
+    lastKnownVersion = status.version;
+    await renderOverview();
+    await renderAlerts();
+    await renderForecast();
+    await renderHistory();
+    await renderMovers();
   }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+// ---------------------------------------------------------------------------
+// Initialization
+// ---------------------------------------------------------------------------
+window.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   await checkAuth();
   await loadStores();
   await loadProducts();
-  await refreshDashboard();
+  await pollForChanges(true);
 
-  try {
-    const status = await fetchJSON('/api/status');
-    if (status && status.version !== undefined) {
-      lastKnownVersion = status.version;
-    }
-  } catch (e) { }
+  // Set default dates
+  const today = new Date().toISOString().split('T')[0];
+  const sfDate = document.getElementById('sf_date');
+  if (sfDate) sfDate.value = today;
 
-  document.getElementById('globalStoreSelect')?.addEventListener('change', () => {
-    refreshDashboard();
-    if (!document.getElementById('reorderTab')?.classList.contains('d-none')) {
-      loadReorderData();
-    }
-  });
-
-  document.getElementById('productSelect')?.addEventListener('change', refreshProductViews);
-  document.getElementById('horizonSelect')?.addEventListener('change', loadAlerts);
-  document.getElementById('applyFestivalBtn')?.addEventListener('click', () => {
-    const date = document.getElementById('festivalDate')?.value;
-    const productId = document.getElementById('productSelect')?.value;
-    if (date && productId) loadForecast(productId, [date]);
-  });
-
-  // Daily / Weekly radio toggle
-  document.getElementById('dailyTrendRadio')?.addEventListener('change', () => {
-    currentTrendView = 'daily';
-    const pid = document.getElementById('productSelect')?.value;
-    if (pid) loadHistory(pid);
-  });
-  document.getElementById('weeklyTrendRadio')?.addEventListener('change', () => {
-    currentTrendView = 'weekly';
-    const pid = document.getElementById('productSelect')?.value;
-    if (pid) loadHistory(pid);
-  });
-
+  // Background polling loop
   setInterval(() => pollForChanges(false), POLL_INTERVAL_MS);
 });

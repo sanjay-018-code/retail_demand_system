@@ -489,6 +489,83 @@ def api_po_status_update():
     return jsonify({"status": "ok"})
 
 
+@app.route("/api/po/batch-approve", methods=["POST"])
+@login_required
+@role_required(["Admin", "Manager"])
+def api_po_batch_approve():
+    data = request.get_json(force=True) if request.data else {}
+    po_ids = data.get("po_ids", [])
+    df = db.load_purchase_orders()
+    if df.empty:
+        return jsonify({"status": "ok", "approved_count": 0, "message": "No purchase orders found."})
+    
+    if not po_ids:
+        # Approve all pending
+        pending = df[df["status"] == "Pending"]["po_id"].tolist()
+        po_ids = pending
+
+    count = 0
+    user = get_current_user()
+    for pid in po_ids:
+        db.update_purchase_order_status(pid, "Approved")
+        count += 1
+    
+    if count > 0:
+        db.add_audit_log(user["username"], "BATCH_APPROVE_PO", "PURCHASE_ORDER", f"{count}_orders", f"Batch approved {count} purchase orders")
+
+    return jsonify({"status": "ok", "approved_count": count})
+
+
+@app.route("/api/template/csv")
+def api_download_template():
+    sample_csv = (
+        "product_id,product_name,category,store_id,date,quantity_sold,current_stock,price,promotion,festival_event,weather\n"
+        "P001,Packaged Snack A,Snacks,S001,2026-08-01,24,110,45.0,0,,Clear\n"
+        "P001,Packaged Snack A,Snacks,S001,2026-08-02,28,86,45.0,0,,Clear\n"
+        "P001,Packaged Snack A,Snacks,S001,2026-08-03,45,41,45.0,1,Diwali,Clear\n"
+        "P002,Organic Milk 1L,Dairy,S001,2026-08-01,35,80,60.0,0,,Rainy\n"
+        "P002,Organic Milk 1L,Dairy,S001,2026-08-02,32,48,60.0,0,,Clear\n"
+    )
+    return Response(
+        sample_csv,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=retail_pos_sample_template.csv"}
+    )
+
+
+@app.route("/api/model/metrics")
+def api_model_metrics():
+    train_stats = STATE["train_stats"] or {}
+    artifact = STATE["artifact"]
+    
+    feature_importances = []
+    if artifact and "model" in artifact and hasattr(artifact["model"], "feature_importances_"):
+        fcols = artifact.get("feature_columns", [])
+        imps = artifact["model"].feature_importances_
+        sorted_pairs = sorted(zip(fcols, imps), key=lambda x: -x[1])[:12]
+        feature_importances = [{"feature": k, "importance": round(float(v) * 100, 2)} for k, v in sorted_pairs]
+
+    versions_df = db.list_model_versions()
+    historical_versions = safe_records(versions_df)
+
+    return jsonify({
+        "current_metrics": {
+            "mae": train_stats.get("mae", 0.0),
+            "rmse": train_stats.get("rmse", 0.0),
+            "version_id": train_stats.get("version_id", "v_initial"),
+            "accepted": train_stats.get("accepted", True),
+            "training_rows": train_stats.get("training_rows", 0),
+            "test_rows": train_stats.get("test_rows", 0),
+            "excluded_rows": train_stats.get("excluded_rows", 0),
+            "excluded_anomaly": train_stats.get("excluded_anomaly", 0),
+            "excluded_censored_stockout": train_stats.get("excluded_censored_stockout", 0),
+            "excluded_missing": train_stats.get("excluded_missing", 0),
+        },
+        "feature_importances": feature_importances,
+        "historical_versions": historical_versions,
+    })
+
+
 # ---------------------------------------------------------------------------
 # What-If Scenario Simulation (Req #28)
 # ---------------------------------------------------------------------------

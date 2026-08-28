@@ -137,3 +137,17 @@ sqlite3.IntegrityError: UNIQUE constraint failed: model_versions.version_id
 {"time":"2026-08-27 21:31:02,114", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
 {"time":"2026-08-27 21:38:57,145", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_213856_e7a16d with MAE=8.74, RMSE=16.70"}
 {"time":"2026-08-27 21:38:57,152", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-28 04:27:25,499", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260828_042725_da167f with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-28 04:27:25,513", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-28 04:27:43,960", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260828_042743_5cd4d0 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-28 04:27:43,974", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-28 04:28:12,478", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260828_042812_c3763c with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-28 04:28:12,486", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-28 04:30:18,814", "level":"WARNING", "module":"main", "message":"Failed login attempt for username: ffyfyy"}
+{"time":"2026-08-28 04:30:19,659", "level":"WARNING", "module":"main", "message":"Failed login attempt for username: ffyfyy"}
+{"time":"2026-08-28 04:30:19,832", "level":"WARNING", "module":"main", "message":"Failed login attempt for username: ffyfyy"}
+{"time":"2026-08-28 04:30:20,020", "level":"WARNING", "module":"main", "message":"Failed login attempt for username: ffyfyy"}
+{"time":"2026-08-28 04:43:47,458", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260828_044347_4dd174 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-28 04:43:47,469", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-28 07:23:41,789", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260828_072341_c99418 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-28 07:23:41,801", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
