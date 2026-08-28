@@ -96,3 +96,44 @@ sqlite3.IntegrityError: UNIQUE constraint failed: model_versions.version_id
 {"time":"2026-08-27 14:59:37,041", "level":"INFO", "module":"tasks", "message":"Starting background task: Sale Add Retrain"}
 {"time":"2026-08-27 14:59:37,053", "level":"INFO", "module":"predictor", "message":"Rolled back active model to version v_20260827_145931_559015"}
 {"time":"2026-08-27 14:59:44,585", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_145943_d0a3f3 with MAE=8.79, RMSE=16.13"}
+{"time":"2026-08-27 21:11:39,077", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_211138_69fa03 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:11:39,097", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-27 21:24:47,780", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212447_407c7c with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:24:47,795", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-27 21:24:48,088", "level":"WARNING", "module":"auth", "message":"Forbidden access: User viewer (Viewer) tried to access /api/manage/products requiring ['Admin', 'Manager']"}
+{"time":"2026-08-27 21:24:48,285", "level":"INFO", "module":"tasks", "message":"Enqueued task: Product Upsert Retrain"}
+{"time":"2026-08-27 21:24:48,286", "level":"INFO", "module":"tasks", "message":"Starting background task: Product Upsert Retrain"}
+{"time":"2026-08-27 21:24:48,295", "level":"WARNING", "module":"auth", "message":"Forbidden access: User manager (Manager) tried to access /api/manage/products/P999 requiring ['Admin']"}
+{"time":"2026-08-27 21:24:49,351", "level":"INFO", "module":"tasks", "message":"Enqueued task: Sale Add Retrain"}
+{"time":"2026-08-27 21:24:52,155", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212451_7ae66e with MAE=8.81, RMSE=16.22"}
+{"time":"2026-08-27 21:24:57,135", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212455_dc85d2 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:24:57,176", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=2"}
+{"time":"2026-08-27 21:24:57,191", "level":"INFO", "module":"tasks", "message":"Finished background task: Product Upsert Retrain"}
+{"time":"2026-08-27 21:24:57,193", "level":"INFO", "module":"tasks", "message":"Starting background task: Sale Add Retrain"}
+{"time":"2026-08-27 21:24:57,647", "level":"INFO", "module":"predictor", "message":"Rolled back active model to version v_20260827_212451_7ae66e"}
+{"time":"2026-08-27 21:25:10,095", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212509_678a98 with MAE=8.79, RMSE=16.13"}
+{"time":"2026-08-27 21:25:34,837", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212534_b090fe with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:25:34,846", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-27 21:27:27,115", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212726_1c8f7c with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:27:27,128", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-27 21:27:27,364", "level":"WARNING", "module":"auth", "message":"Forbidden access: User viewer (Viewer) tried to access /api/manage/products requiring ['Admin', 'Manager']"}
+{"time":"2026-08-27 21:27:27,526", "level":"INFO", "module":"tasks", "message":"Enqueued task: Product Upsert Retrain"}
+{"time":"2026-08-27 21:27:27,526", "level":"INFO", "module":"tasks", "message":"Starting background task: Product Upsert Retrain"}
+{"time":"2026-08-27 21:27:27,534", "level":"WARNING", "module":"auth", "message":"Forbidden access: User manager (Manager) tried to access /api/manage/products/P999 requiring ['Admin']"}
+{"time":"2026-08-27 21:27:28,432", "level":"INFO", "module":"tasks", "message":"Enqueued task: Sale Add Retrain"}
+{"time":"2026-08-27 21:27:31,397", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212730_8b6942 with MAE=8.81, RMSE=16.22"}
+{"time":"2026-08-27 21:27:35,802", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212734_3a6732 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:27:35,825", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=2"}
+{"time":"2026-08-27 21:27:35,833", "level":"INFO", "module":"tasks", "message":"Finished background task: Product Upsert Retrain"}
+{"time":"2026-08-27 21:27:35,834", "level":"INFO", "module":"tasks", "message":"Starting background task: Sale Add Retrain"}
+{"time":"2026-08-27 21:27:35,992", "level":"INFO", "module":"predictor", "message":"Rolled back active model to version v_20260827_212730_8b6942"}
+{"time":"2026-08-27 21:27:44,272", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212743_e8698d with MAE=8.79, RMSE=16.13"}
+{"time":"2026-08-27 21:27:45,431", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212744_05147c with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:27:45,455", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=3"}
+{"time":"2026-08-27 21:27:45,465", "level":"INFO", "module":"tasks", "message":"Finished background task: Sale Add Retrain"}
+{"time":"2026-08-27 21:29:12,176", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_212911_608236 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:29:12,187", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-27 21:31:02,064", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_213101_f0e997 with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:31:02,114", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}
+{"time":"2026-08-27 21:38:57,145", "level":"INFO", "module":"predictor", "message":"Deployed new model version v_20260827_213856_e7a16d with MAE=8.74, RMSE=16.70"}
+{"time":"2026-08-27 21:38:57,152", "level":"INFO", "module":"main", "message":"Pipeline refreshed successfully. Version=1"}

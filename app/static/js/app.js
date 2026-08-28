@@ -46,7 +46,6 @@ document.querySelectorAll('#mainTabs .nav-link').forEach(btn => {
     const tabEl = document.getElementById(tabId);
     if (tabEl) tabEl.classList.remove('d-none');
 
-    if (tabId === 'factorsTab') loadFactorsAndHiddenCases();
     if (tabId === 'reorderTab') loadReorderData();
     if (tabId === 'simulatorTab') initSimulatorTab();
     if (tabId === 'manageTab') loadManagementData();
@@ -63,7 +62,7 @@ async function checkAuth() {
   document.getElementById('navRoleBadge').textContent = data.role;
   document.getElementById('navRoleBadge').className =
     data.role === 'Admin' ? 'badge bg-danger text-light px-1' :
-    data.role === 'Manager' ? 'badge bg-primary text-light px-1' : 'badge bg-secondary text-light px-1';
+      data.role === 'Manager' ? 'badge bg-primary text-light px-1' : 'badge bg-secondary text-light px-1';
 
   const authBtn = document.getElementById('authBtn');
   if (data.authenticated) {
@@ -161,7 +160,6 @@ async function loadOverview() {
     { label: 'Products Tracked', value: data.total_products, icon: 'bi-box-seam text-primary' },
     { label: 'Sales Records (Step 1)', value: data.total_records.toLocaleString(), icon: 'bi-database-check text-info' },
     { label: 'Total Units Sold', value: data.total_units_sold.toLocaleString(), icon: 'bi-bar-chart-fill text-success' },
-    { label: 'Total Revenue', value: fmtMoney(data.total_revenue), icon: 'bi-currency-rupee text-warning' },
     { label: 'Cleaned Gaps (Step 2)', value: `${data.data_quality.missing_records_filled} records`, icon: 'bi-shield-check text-secondary' },
   ];
 
@@ -316,7 +314,7 @@ async function loadHistory(productId) {
   if (!Array.isArray(data)) return;
 
   const recent = data.slice(-50);
-  const labels = recent.map(d => (currentTrendView === 'weekly' ? `Wk of ${d.week.slice(0,10)}` : d.date));
+  const labels = recent.map(d => (currentTrendView === 'weekly' ? `Wk of ${d.week.slice(0, 10)}` : d.date));
   const values = recent.map(d => (currentTrendView === 'weekly' ? d.weekly_demand : d.daily_demand));
 
   const ctx = document.getElementById('historyChart');
@@ -359,7 +357,7 @@ async function loadMovers() {
 
   tbody.innerHTML = movers.map(m => {
     const badgeClass = m.movement_class === 'Fast-Moving' ? 'bg-success-subtle text-success fw-bold' :
-                        m.movement_class === 'Slow-Moving' ? 'bg-danger-subtle text-danger fw-bold' : 'bg-warning-subtle text-warning';
+      m.movement_class === 'Slow-Moving' ? 'bg-danger-subtle text-danger fw-bold' : 'bg-warning-subtle text-warning';
     return `
       <tr>
         <td class="fw-semibold text-slate-800">${m.product_name}</td>
@@ -491,7 +489,7 @@ async function loadReorderData() {
 
   tbody.innerHTML = recommendations.map(r => {
     const urgencyBadge = r.urgency === 'High' ? 'bg-danger text-white' :
-                          r.urgency === 'Medium' ? 'bg-warning text-dark' : 'bg-success-subtle text-success';
+      r.urgency === 'Medium' ? 'bg-warning text-dark' : 'bg-success-subtle text-success';
     return `
       <tr>
         <td>
@@ -544,9 +542,9 @@ async function loadPurchaseOrdersList() {
 
   tbody.innerHTML = orders.map(po => {
     const statusCls = po.status === 'Pending' ? 'bg-warning text-dark' :
-                      po.status === 'Approved' ? 'bg-info text-white' :
-                      po.status === 'Ordered' ? 'bg-primary text-white' :
-                      po.status === 'Received' ? 'bg-success text-white' : 'bg-secondary text-white';
+      po.status === 'Approved' ? 'bg-info text-white' :
+        po.status === 'Ordered' ? 'bg-primary text-white' :
+          po.status === 'Received' ? 'bg-success text-white' : 'bg-secondary text-white';
 
     return `
       <tr>
@@ -720,7 +718,7 @@ async function executeSimulation() {
       <div class="kpi-card text-center">
         <div class="kpi-value text-success">+${res.net_demand_uplift}</div>
         <div class="kpi-label">Simulated Demand Uplift</div>
-        <div class="small text-muted mt-1">+${((res.net_demand_uplift / (res.total_baseline_demand || 1))*100).toFixed(0)}% campaign surge</div>
+        <div class="small text-muted mt-1">+${((res.net_demand_uplift / (res.total_baseline_demand || 1)) * 100).toFixed(0)}% campaign surge</div>
       </div>
     </div>
     <div class="col-md-3">
@@ -963,15 +961,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (status && status.version !== undefined) {
       lastKnownVersion = status.version;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   document.getElementById('globalStoreSelect')?.addEventListener('change', () => {
     refreshDashboard();
     if (!document.getElementById('reorderTab')?.classList.contains('d-none')) {
       loadReorderData();
-    }
-    if (!document.getElementById('factorsTab')?.classList.contains('d-none')) {
-      loadFactorsAndHiddenCases();
     }
   });
 
